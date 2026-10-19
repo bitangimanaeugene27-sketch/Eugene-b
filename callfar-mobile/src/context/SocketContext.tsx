@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -8,6 +9,9 @@ import {
   onTokenChange,
   getMemoryAuthToken,
   pingServer,
+  probeHost,
+  autoDetectServerHost,
+  isCloudServer,
 } from '../api/client';
 import { useAuth } from './AuthContext';
 
@@ -70,8 +74,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const socketInstance = io(url, {
         auth: { token: currentToken },
         transports: ['websocket', 'polling'],
-        reconnectionAttempts: 30,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
         timeout: 10000,
       });
 
@@ -165,6 +170,51 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
     return unsub;
   }, [token, connectToHost]);
+
+  // Handle background / foreground transitions:
+  // • Short background (< 60 s): just reconnect the socket.
+  // • Long background (≥ 60 s): re-probe the host first (Wi-Fi can reassign
+  //   IPs or the user could be on a different network now) then reconnect.
+  useEffect(() => {
+    let backgroundTimestamp = Date.now();
+
+    const handleAppStateChange = async (nextState: AppStateStatus) => {
+      console.log(`[Socket] AppState changed to: ${nextState}`);
+
+      if (nextState === 'background' || nextState === 'inactive') {
+        backgroundTimestamp = Date.now();
+        return;
+      }
+
+      if (nextState === 'active') {
+        const idleMs = Date.now() - backgroundTimestamp;
+        const wasLongIdle = idleMs > 60_000; // more than 60 seconds in background
+
+        if (!socketRef.current || !socketRef.current.connected) {
+          if (wasLongIdle && !isCloudServer(currentActiveHost)) {
+            // Re-probe active host first — IP may have changed on local Wi-Fi
+            console.log(`[Socket] Long idle (${Math.round(idleMs / 1000)}s). Re-probing host...`);
+            const alive = await probeHost(currentActiveHost, 1500);
+            if (!alive) {
+              console.log('[Socket] Host unreachable after idle. Auto-detecting...');
+              await autoDetectServerHost();
+            }
+          }
+          console.log('[Socket] App foregrounded — reconnecting socket...');
+          reconnectSocket();
+        } else if (wasLongIdle) {
+          // Socket still alive but verify server is up (can be a stale TCP
+          // connection that will fail on first real message).
+          pingServer().catch(() => {
+            reconnectSocket();
+          });
+        }
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+    return () => sub.remove();
+  }, [reconnectSocket]);
 
   // Periodic latency measurement (every 25 seconds)
   useEffect(() => {

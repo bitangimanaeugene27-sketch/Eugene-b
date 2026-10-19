@@ -132,6 +132,51 @@ class SoundManager {
   }
 
   /**
+   * Switch audio session to CALL mode when a WebRTC call connects.
+   * This routes microphone input + WebRTC audio output through the earpiece
+   * (or speakerphone if user selects it) on Android and iOS.
+   * MUST be called right when the call is accepted / connected.
+   */
+  async switchToCallAudio(useSpeaker = false) {
+    if (Audio?.setAudioModeAsync) {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: false,
+          // false = earpiece (private call), true = speakerphone
+          playThroughEarpieceAndroid: !useSpeaker,
+        });
+        console.log('[SoundManager] Audio switched to CALL mode. Speaker:', useSpeaker);
+      } catch (e) {
+        console.warn('[SoundManager] switchToCallAudio error:', e);
+      }
+    }
+  }
+
+  /**
+   * Restore audio session to MEDIA mode after a call ends.
+   * Routes audio back to speaker (normal media playback).
+   */
+  async switchToMediaAudio() {
+    if (Audio?.setAudioModeAsync) {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+        console.log('[SoundManager] Audio restored to MEDIA mode.');
+      } catch (e) {
+        console.warn('[SoundManager] switchToMediaAudio error:', e);
+      }
+    }
+  }
+
+  /**
    * Play Outgoing Ringback Tone ("tuuuut... tuuuut...")
    * When caller is waiting for the receiver to answer
    */

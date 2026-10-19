@@ -4,6 +4,11 @@ import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
 import { api } from '../api/client';
 import { soundManager } from '../utils/SoundManager';
+import {
+  showSystemCallNotification,
+  dismissSystemCallNotification,
+  addCallNotificationListeners,
+} from '../utils/CallNotification';
 
 // Optional WebRTC import handling for dev/prebuild flexibility
 let RTCPeerConnection: any;
@@ -53,6 +58,7 @@ interface CallContextType {
   durationSeconds: number;
   isAssistantSpeaking: boolean;
   assistantTranscript: string;
+  isSpeakerOn: boolean;
   startCall: (
     peerId: string,
     peerName: string,
@@ -64,10 +70,27 @@ interface CallContextType {
   endCall: () => void;
   toggleMute: () => void;
   toggleCamera: () => void;
+  toggleSpeaker: () => void;
   speakAssistantGreeting: () => void;
 }
 
 const CallContext = createContext<CallContextType | undefined>(undefined);
+
+// Helper to inject Opus codec optimization parameters for crystal clear audio, low latency and resilience
+function tuneOpusSdp(sdp: string): string {
+  if (!sdp) return sdp;
+  return sdp.replace(/a=fmtp:(\d+) (.*)/g, (match, pt, params) => {
+    if (sdp.includes(`a=rtpmap:${pt} opus/48000`)) {
+      let tuned = params;
+      if (!tuned.includes('useinbandfec=')) tuned += ';useinbandfec=1';
+      if (!tuned.includes('usedtx=')) tuned += ';usedtx=1';
+      if (!tuned.includes('minptime=')) tuned += ';minptime=10';
+      if (!tuned.includes('maxaveragebitrate=')) tuned += ';maxaveragebitrate=64000';
+      return `a=fmtp:${pt} ${tuned}`;
+    }
+    return match;
+  });
+}
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { socket, reconnectSocket } = useSocket();
@@ -80,12 +103,15 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
   const [assistantTranscript, setAssistantTranscript] = useState('');
 
   const peerConnection = useRef<any>(null);
   const timerRef = useRef<any>(null);
+  const audioWatchdogRef = useRef<any>(null);
+  const isSpeakerOnRef = useRef<boolean>(false);
   const pendingOfferSdp = useRef<any>(null);
   // Queue ICE candidates that arrive before remote description is set
   const pendingIceCandidates = useRef<any[]>([]);
@@ -93,22 +119,51 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Track current call ID/peer in refs so socket handlers always see latest value
   const activeCallIdRef = useRef<string>('');
   const activePeerIdRef = useRef<string>('');
+  const localStreamRef = useRef<any>(null);
 
-  // Duration Timer
+  // Duration Timer + Audio Watchdog
   useEffect(() => {
     if (callState === 'CONNECTED') {
       setDurationSeconds(0);
       timerRef.current = setInterval(() => {
         setDurationSeconds((sec) => sec + 1);
       }, 1000);
+
+      // ─── Audio Watchdog: every 5 seconds while call is live ──────────────
+      // Re-acquires audio focus with the current speaker/earpiece mode and validates tracks.
+      // Keeps sound continuously communicating without interruption.
+      audioWatchdogRef.current = setInterval(() => {
+        const pc = peerConnection.current;
+        const stream = localStreamRef.current;
+        const iceState = pc?.iceConnectionState;
+
+        // Re-apply call audio session with current user speaker selection
+        soundManager.switchToCallAudio(isSpeakerOnRef.current);
+
+        // Validate that the local audio track is still enabled (unless muted by user)
+        if (stream && !isMuted) {
+          const audioTracks = stream.getAudioTracks?.() || [];
+          audioTracks.forEach((track: any) => {
+            if (!track.enabled) {
+              track.enabled = true;
+              console.log('[Watchdog] Re-enabled local audio track');
+            }
+          });
+        }
+
+        console.log(`[Watchdog] ICE=${iceState} | Speaker=${isSpeakerOnRef.current} | Audio tracks=${stream?.getAudioTracks?.()?.length ?? 0}`);
+      }, 5000);
+
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (audioWatchdogRef.current) clearInterval(audioWatchdogRef.current);
       if (callState === 'IDLE') setDurationSeconds(0);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (audioWatchdogRef.current) clearInterval(audioWatchdogRef.current);
     };
-  }, [callState]);
+  }, [callState, isMuted]);
 
   const speakAssistantGreeting = () => {
     const greeting =
@@ -152,10 +207,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         remoteDescSet.current = false;
         pendingIceCandidates.current = [];
         soundManager.playRingtone();
+
+        const callerName =
+          data.caller.profile?.displayName || data.caller.username || 'CallFar Contact';
+
+        // 🔔 Show Android high-priority pop-up heads-up notification (over any app / home screen)
+        showSystemCallNotification(data.callId, callerName, data.callType);
+
         setIncomingCall({
           callId: data.callId,
           peerId: data.caller.id,
-          peerName: data.caller.profile?.displayName || data.caller.username,
+          peerName: callerName,
           peerAvatar: data.caller.profile?.avatarUrl,
           callType: data.callType,
           isIncoming: true,
@@ -188,6 +250,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[Call Accepted by peer]', data.callId);
         soundManager.stopAll();
         soundManager.playCallConnected();
+        
+        const useSpeaker = activeCall?.callType === 'VIDEO';
+        setIsSpeakerOn(useSpeaker);
+        isSpeakerOnRef.current = useSpeaker;
+        // 🔑 Switch audio session to call mode with appropriate speaker state
+        await soundManager.switchToCallAudio(useSpeaker);
 
         setActiveCall((prev) => {
           if (!prev) return prev;
@@ -221,16 +289,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // 4. Remote ICE Candidate received - queue until remote desc is set
+    // 4. Remote ICE Candidate received - queue if remote desc is not yet set or peer connection is still initializing
     socket.on('call:ice-candidate', async (data: { candidate: any }) => {
-      if (!data.candidate || !RTCIceCandidate || !peerConnection.current) return;
+      if (!data?.candidate) return;
 
-      if (!remoteDescSet.current) {
+      if (!remoteDescSet.current || !peerConnection.current) {
         pendingIceCandidates.current.push(data.candidate);
         return;
       }
       try {
-        await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        if (RTCIceCandidate) {
+          await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
       } catch (e) {
         console.warn('[Add ICE error]:', e);
       }
@@ -263,7 +333,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupCall();
     });
 
+    // Listen for notification action buttons (when user clicks Accept/Decline on pop-up banner)
+    const cleanupNotifListeners = addCallNotificationListeners(
+      (_callId) => {
+        acceptCall();
+      },
+      (_callId) => {
+        rejectCall();
+      }
+    );
+
     return () => {
+      cleanupNotifListeners();
       socket.off('call:incoming');
       socket.off('call:ringing');
       socket.off('call:accepted');
@@ -295,19 +376,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // High-performance STUN servers for instant connection establishment
       const iceServers = [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
       ];
-      try {
-        const iceRes = await api.get('/calls/ice-servers', { timeout: 3000 });
-        if (iceRes.data?.data?.length) {
-          iceServers.push(...iceRes.data.data);
-        }
-      } catch {
-        console.log('[ICE] Using fallback public STUN servers');
-      }
 
       const pc = new RTCPeerConnection({
         iceServers,
@@ -319,11 +395,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remoteDescSet.current = false;
       pendingIceCandidates.current = [];
 
-      // Build media constraints - try video, fall back to audio-only if needed
-      let constraints: any = { audio: true, video: false };
+      // High-definition telecom audio constraints for crystal clear voice & noise filtering
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        highpassFilter: true,
+      };
+
+      let constraints: any = { audio: audioConstraints, video: false };
       if (callType === 'VIDEO') {
         constraints = {
-          audio: true,
+          audio: audioConstraints,
           video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
         };
       }
@@ -341,6 +424,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setLocalStream(stream);
+      localStreamRef.current = stream;
 
       if (isSelfCall) {
         setRemoteStream(stream);
@@ -370,10 +454,54 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
+      // ─── ICE State Monitor ───────────────────────────────────────────────
       pc.oniceconnectionstatechange = () => {
-        console.log('[ICE State]:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'failed' && isCaller && pc.restartIce) {
-          pc.restartIce();
+        const state = pc.iceConnectionState;
+        console.log('[ICE State]:', state);
+
+        if (state === 'connected' || state === 'completed') {
+          // Re-apply call audio mode in case Android stole audio focus
+          soundManager.switchToCallAudio(false);
+          // Ensure local audio track is active
+          const audioTrack = localStreamRef.current?.getAudioTracks?.()[0];
+          if (audioTrack && !audioTrack.enabled) {
+            audioTrack.enabled = true;
+            console.log('[Audio] Re-enabled audio track after ICE reconnect');
+          }
+        }
+
+        if (state === 'disconnected') {
+          console.log('[ICE] Disconnected — attempting recovery...');
+          // Re-apply audio focus immediately on disconnect
+          soundManager.switchToCallAudio(false);
+          // Give ICE 4 seconds to self-recover before forcing a restart
+          setTimeout(() => {
+            if (
+              peerConnection.current &&
+              peerConnection.current.iceConnectionState === 'disconnected'
+            ) {
+              if (isCaller && peerConnection.current.restartIce) {
+                console.log('[ICE] Forcing ICE restart...');
+                peerConnection.current.restartIce();
+              }
+            }
+          }, 4000);
+        }
+
+        if (state === 'failed') {
+          if (isCaller && pc.restartIce) {
+            console.log('[ICE] Failed — restarting ICE...');
+            pc.restartIce();
+          }
+        }
+      };
+
+      // ─── Connection State Monitor ────────────────────────────────────────
+      pc.onconnectionstatechange = () => {
+        console.log('[PC State]:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          // Audio session keepalive: re-apply call audio mode
+          soundManager.switchToCallAudio(false);
         }
       };
 
@@ -454,6 +582,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           offerToReceiveAudio: true,
           offerToReceiveVideo: callType === 'VIDEO',
         });
+        if (offer.sdp) {
+          offer.sdp = tuneOpusSdp(offer.sdp);
+        }
         await pc.setLocalDescription(offer);
         offerSdp = offer;
       } catch (e) {
@@ -470,10 +601,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const acceptCall = async () => {
     if (!incomingCall || !socket) return;
 
+    dismissSystemCallNotification();
     soundManager.stopAll();
     soundManager.playCallConnected();
 
     const currentIncoming = { ...incomingCall };
+    const useSpeaker = currentIncoming.callType === 'VIDEO';
+    setIsSpeakerOn(useSpeaker);
+    isSpeakerOnRef.current = useSpeaker;
+    // 🔑 Switch audio session to call mode with appropriate speaker state
+    soundManager.switchToCallAudio(useSpeaker);
+
     activeCallIdRef.current = currentIncoming.callId;
     activePeerIdRef.current = currentIncoming.peerId;
     remoteDescSet.current = false;
@@ -498,6 +636,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await drainPendingIceCandidates();
 
         const answer = await pc.createAnswer();
+        if (answer.sdp) {
+          answer.sdp = tuneOpusSdp(answer.sdp);
+        }
         await pc.setLocalDescription(answer);
 
         socket.emit('call:accept', {
@@ -523,6 +664,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Reject an incoming call
    */
   const rejectCall = () => {
+    dismissSystemCallNotification();
     if (!incomingCall || !socket) return;
     soundManager.stopAll();
     soundManager.playCallEnded();
@@ -557,7 +699,19 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * Release media hardware and clear call states
    */
   const cleanupCall = () => {
+    dismissSystemCallNotification();
+    // Stop watchdog first
+    if (audioWatchdogRef.current) {
+      clearInterval(audioWatchdogRef.current);
+      audioWatchdogRef.current = null;
+    }
     soundManager.stopAll();
+    // Restore audio session to normal media mode after call ends
+    soundManager.switchToMediaAudio();
+    if (localStreamRef.current) {
+      try { localStreamRef.current.getTracks().forEach((track: any) => track.stop()); } catch {}
+      localStreamRef.current = null;
+    }
     if (localStream) {
       try { localStream.getTracks().forEach((track: any) => track.stop()); } catch {}
     }
@@ -570,6 +724,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     remoteDescSet.current = false;
     pendingIceCandidates.current = [];
     pendingOfferSdp.current = null;
+    setIsSpeakerOn(false);
+    isSpeakerOnRef.current = false;
 
     setLocalStream(null);
     setRemoteStream(null);
@@ -602,6 +758,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleSpeaker = () => {
+    const next = !isSpeakerOn;
+    setIsSpeakerOn(next);
+    isSpeakerOnRef.current = next;
+    soundManager.switchToCallAudio(next);
+  };
+
   return (
     <CallContext.Provider
       value={{
@@ -612,6 +775,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         remoteStream,
         isMuted,
         isVideoEnabled,
+        isSpeakerOn,
         durationSeconds,
         isAssistantSpeaking,
         assistantTranscript,
@@ -621,6 +785,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         endCall,
         toggleMute,
         toggleCamera,
+        toggleSpeaker,
         speakAssistantGreeting,
       }}
     >

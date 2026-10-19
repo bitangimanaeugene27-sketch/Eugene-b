@@ -14,6 +14,8 @@ import {
   autoDetectServerHost,
   probeHost,
   onHostChange,
+  isCloudServer,
+  normalizeServerTarget,
 } from '../../api/client';
 import { THEME } from '../../styles/theme';
 
@@ -26,7 +28,7 @@ export const ServerStatusBar = () => {
 
   // Check connection status
   const checkStatus = async (hostToTest = activeHost) => {
-    const alive = await probeHost(hostToTest, 1500);
+    const alive = await probeHost(hostToTest, 2000);
     setIsOnline(alive);
   };
 
@@ -54,12 +56,18 @@ export const ServerStatusBar = () => {
       if (found) {
         setActiveHost(found);
         setIsOnline(true);
-        Alert.alert('Server Discovered! 📡', `Connected to CallFar server at ${found}:5000`);
+        const isCloud = isCloudServer(found);
+        Alert.alert(
+          'Server Connected! 📡',
+          isCloud
+            ? `Connected to online cloud server at ${found}`
+            : `Connected to CallFar server on local Wi-Fi at ${found}:5000`
+        );
       } else {
         setIsOnline(false);
         Alert.alert(
           'Scan Finished',
-          'Could not find a CallFar server on local Wi-Fi automatically. Make sure your PC backend is running (`npm run dev`) and both devices are on the same Wi-Fi network, or tap "Custom IP" to enter it manually.'
+          'Could not find a local CallFar server automatically. You can enter an online Cloud HTTPS URL or local Wi-Fi IP in Server Settings (⚙️).'
         );
       }
     } catch {
@@ -70,11 +78,18 @@ export const ServerStatusBar = () => {
   };
 
   const handleApplyCustomIp = async () => {
-    const clean = customIp.trim().replace(/^http:\/\//, '').replace(/:[0-9]+$/, '');
-    if (!clean) return;
+    const raw = customIp.trim();
+    if (!raw) return;
+
+    // Properly normalize: keep full http/https if present; if domain with dots treat as HTTPS; else treat as local host
+    const clean = raw.startsWith('http://') || raw.startsWith('https://')
+      ? raw
+      : raw.includes('.') && !/^[0-9.]+$/.test(raw)
+      ? `https://${raw}`
+      : raw.replace(/^https?:\/\//, '').replace(/:[0-9]+$/, '');
 
     setScanning(true);
-    const alive = await probeHost(clean, 2000);
+    const alive = await probeHost(clean, 2500);
     setScanning(false);
 
     if (alive) {
@@ -82,14 +97,19 @@ export const ServerStatusBar = () => {
       setActiveHost(clean);
       setIsOnline(true);
       setShowCustomInput(false);
-      Alert.alert('Connected', `CallFar server host set to ${clean}`);
+      Alert.alert('✅ Connected', `CallFar connected to: ${clean}`);
     } else {
       Alert.alert(
         'Unreachable',
-        `No CallFar server responded at ${clean}:5000. Check the IP address and make sure the backend is running.`
+        `No CallFar server responded at ${clean}. Check the address or make sure your server is online.`
       );
     }
   };
+
+  const target = normalizeServerTarget(activeHost);
+  const displayLabel = target.isCloud
+    ? `Cloud: ${target.displayHost}`
+    : `Wi-Fi: ${target.displayHost}:5000`;
 
   return (
     <View style={styles.container}>
@@ -107,7 +127,7 @@ export const ServerStatusBar = () => {
           />
           <Text style={styles.statusText} numberOfLines={1}>
             {isOnline === true
-              ? `Server: ${activeHost}:5000`
+              ? displayLabel
               : isOnline === false
               ? 'Server: Offline'
               : 'Connecting…'}
@@ -143,17 +163,32 @@ export const ServerStatusBar = () => {
       {/* Custom IP input drawer */}
       {showCustomInput && (
         <View style={styles.customIpDrawer}>
-          <Text style={styles.drawerLabel}>Enter Host PC Wi-Fi IP (e.g. 172.23.224.248):</Text>
+          <Text style={styles.drawerLabel}>Connect to Online Cloud Server or Local Wi-Fi:</Text>
+          <View style={styles.quickPresetRow}>
+            <TouchableOpacity
+              style={styles.presetChip}
+              onPress={() => setCustomIp('https://')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.presetChipText}>🌐 Cloud HTTPS</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.presetChip}
+              onPress={() => setCustomIp('172.23.224.248')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.presetChipText}>🏠 Local Wi-Fi</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.inputRow}>
             <TextInput
               style={styles.input}
-              placeholder="e.g. 172.23.224.248"
+              placeholder="e.g. https://... or 172.23.224.248"
               placeholderTextColor={THEME.colors.textMuted}
               value={customIp}
               onChangeText={setCustomIp}
               autoCapitalize="none"
               autoCorrect={false}
-              keyboardType="numbers-and-punctuation"
             />
             <TouchableOpacity
               style={styles.connectBtn}
@@ -253,7 +288,25 @@ const styles = StyleSheet.create({
   drawerLabel: {
     color: THEME.colors.textMuted,
     fontSize: 11,
-    marginBottom: 6,
+    marginBottom: 8,
+  },
+  quickPresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  presetChip: {
+    backgroundColor: THEME.colors.surfaceHover,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: THEME.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  presetChipText: {
+    color: THEME.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',

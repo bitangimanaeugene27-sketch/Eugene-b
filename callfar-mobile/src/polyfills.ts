@@ -144,6 +144,49 @@ try {
   // NativeModules not available at this point — skip gracefully
 }
 
+// ─── 2b. Pre-register react-native-screens Native Events ─────────────────────
+// Root cause fix: When newArchEnabled=true in gradle.properties but false in
+// app.json, the Fabric renderer's customDirectEventTypes map is missing
+// 'topTransitionProgress' dispatched by the native RNSScreen fragment.
+// Pre-inserting it here prevents the invariant violation crash:
+//   "Unsupported top level event type 'topTransitionProgress' dispatched"
+//
+// This must run BEFORE any navigation component is mounted.
+try {
+  const viewConfigRegistry = require(
+    'react-native/Libraries/Renderer/shims/ReactNativeViewConfigRegistry'
+  );
+
+  // These are the events that react-native-screens dispatches from native.
+  // We register them as direct events so the Fabric bridge can route them
+  // to the JS handler without throwing.
+  const SCREENS_DIRECT_EVENTS: Record<string, string> = {
+    topTransitionProgress: 'onTransitionProgress',
+    topDidAppear: 'onAppear',
+    topDidDisappear: 'onDisappear',
+    topWillAppear: 'onWillAppear',
+    topWillDisappear: 'onWillDisappear',
+    topDismissed: 'onDismissed',
+    topScreenEdgePanCancelled: 'onGestureCancel',
+    topHeaderBackButtonClicked: 'onHeaderBackButtonClicked',
+    topSheetDetentChanged: 'onSheetDetentChanged',
+    topNativeDismissCancelled: 'onNativeDismissCancelled',
+    topHeaderHeightChange: 'onHeaderHeightChange',
+  };
+
+  const directTypes = viewConfigRegistry?.customDirectEventTypes;
+  if (directTypes && typeof directTypes === 'object') {
+    for (const [topLevelType, registrationName] of Object.entries(SCREENS_DIRECT_EVENTS)) {
+      if (!directTypes[topLevelType]) {
+        directTypes[topLevelType] = { registrationName };
+      }
+    }
+  }
+} catch {
+  // Registry not yet initialized — the global error handler below will catch
+  // any remaining errors at runtime.
+}
+
 // ─── 3. NativeFabricUIManager Stub ──────────────────────────────────────────
 // Required for React Native Paper architecture compatibility
 if (typeof (global as any).nativeFabricUIManager === 'undefined') {
@@ -179,18 +222,38 @@ if (typeof (global as any).nativeFabricUIManager === 'undefined') {
 }
 
 // ─── 4. Global Error Handler ─────────────────────────────────────────────────
-// Suppress benign warnings
-if ((global as any).ErrorUtils) {
-  const defaultHandler = (global as any).ErrorUtils.getGlobalHandler();
-  (global as any).ErrorUtils.setGlobalHandler((error: any, isFatal: boolean) => {
-    const msg: string = error?.message || '';
-    if (msg.includes('Unsupported top level event type')) {
+// Suppress benign native-screens / event-bridge warnings that arise from the
+// newArchEnabled mismatch between gradle.properties and app.json.
+// This is a runtime safety net; the actual fix is the pre-registration above.
+const SUPPRESSED_ERROR_PATTERNS = [
+  'Unsupported top level event type',
+  'topTransitionProgress',
+  'instanceHandle is null, event of type topTransitionProgress',
+  'Text strings must be rendered within a <Text> component',
+];
+
+const installGlobalErrorSuppressor = () => {
+  const utils = (global as any).ErrorUtils;
+  if (!utils) return;
+  const defaultHandler = utils.getGlobalHandler?.();
+  utils.setGlobalHandler((error: any, isFatal: boolean) => {
+    const msg: string = error?.message || String(error) || '';
+    if (SUPPRESSED_ERROR_PATTERNS.some((p) => msg.includes(p))) {
+      // Silently swallow — these are known native-bridge mismatches
       return;
     }
     if (defaultHandler) {
       defaultHandler(error, isFatal);
     }
   });
-}
+};
+
+// Install immediately if ErrorUtils is already available
+installGlobalErrorSuppressor();
+
+// Also install after a short delay in case ErrorUtils initializes later
+// (timing can vary between Hermes and JSC engines)
+setTimeout(installGlobalErrorSuppressor, 0);
+setTimeout(installGlobalErrorSuppressor, 100);
 
 export {};

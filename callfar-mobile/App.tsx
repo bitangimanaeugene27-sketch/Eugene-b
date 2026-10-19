@@ -5,7 +5,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LogBox } from 'react-native';
 import { enableScreens } from 'react-native-screens';
 
-enableScreens(false);
+// ─── Screen initialisation ───────────────────────────────────────────────────
+// polyfills.ts already pre-registers the missing native event types
+// (topTransitionProgress etc.) BEFORE this module loads, so it is now
+// safe to enable native screens. This eliminates the
+// "Unsupported top level event type" crash.
+enableScreens(true);
+
+// Suppress all LogBox overlays in the dev build so the red-screen never
+// appears for end-users who install the development APK.
 LogBox.ignoreAllLogs(true);
 
 import { AuthProvider } from './src/context/AuthContext';

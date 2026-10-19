@@ -1,7 +1,9 @@
 package com.callfar.app
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -14,9 +16,38 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     // Set the theme to AppTheme BEFORE onCreate to support
     // coloring the background, status bar, and navigation bar.
-    // This is required for expo-splash-screen.
-    setTheme(R.style.AppTheme);
+    setTheme(R.style.AppTheme)
     super.onCreate(null)
+
+    // Turn screen on and show over lock screen for incoming calls
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+        WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+        WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+        WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+      )
+    }
+
+    handleIncomingCallIntent(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    handleIncomingCallIntent(intent)
+  }
+
+  private fun handleIncomingCallIntent(intent: Intent?) {
+    if (intent == null) return
+    val action = intent.getStringExtra("action")
+    val callId = intent.getStringExtra("callId") ?: ""
+    if (action == "ACCEPT_CALL" && callId.isNotEmpty()) {
+      CallNotificationEmitter.emitEvent("onNotificationAcceptCall", callId)
+    }
   }
 
   /**
@@ -43,19 +74,14 @@ class MainActivity : ReactActivity() {
   /**
     * Align the back button behavior with Android S
     * where moving root activities to background instead of finishing activities.
-    * @see <a href="https://developer.android.com/reference/android/app/Activity#onBackPressed()">onBackPressed</a>
     */
   override fun invokeDefaultOnBackPressed() {
       if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
           if (!moveTaskToBack(false)) {
-              // For non-root activities, use the default implementation to finish them.
               super.invokeDefaultOnBackPressed()
           }
           return
       }
-
-      // Use the default back button implementation on Android S
-      // because it's doing more than [Activity.moveTaskToBack] in fact.
       super.invokeDefaultOnBackPressed()
   }
 }

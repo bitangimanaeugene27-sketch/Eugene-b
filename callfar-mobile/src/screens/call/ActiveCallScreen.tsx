@@ -106,12 +106,14 @@ export const ActiveCallScreen: React.FC = () => {
     remoteStream,
     isMuted,
     isVideoEnabled,
+    isSpeakerOn,
     durationSeconds,
     isAssistantSpeaking,
     assistantTranscript,
     endCall,
     toggleMute,
     toggleCamera,
+    toggleSpeaker,
     speakAssistantGreeting,
   } = useCall();
 
@@ -264,6 +266,15 @@ export const ActiveCallScreen: React.FC = () => {
           >
             <Text style={styles.controlIcon}>{isMuted ? '🔇' : '🎙️'}</Text>
             <Text style={styles.controlLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+          </TouchableOpacity>
+
+          {/* Speaker / Earpiece Toggle */}
+          <TouchableOpacity
+            style={[styles.controlBtn, isSpeakerOn && styles.controlBtnSpeakerActive]}
+            onPress={toggleSpeaker}
+          >
+            <Text style={styles.controlIcon}>{isSpeakerOn ? '📢' : '👂'}</Text>
+            <Text style={styles.controlLabel}>{isSpeakerOn ? 'Speaker' : 'Earpiece'}</Text>
           </TouchableOpacity>
 
           {/* End Call Button */}
@@ -459,6 +470,9 @@ const styles = StyleSheet.create({
   },
   controlBtnActive: {
     backgroundColor: THEME.colors.primary,
+  },
+  controlBtnSpeakerActive: {
+    backgroundColor: '#10B981',
   },
   controlIcon: {
     fontSize: 22,
