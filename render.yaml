@@ -1,0 +1,42 @@
+# Render Blueprint Specification for CallFar WebRTC & API Backend
+# Deploy online with 1-click on https://render.com
+services:
+  - type: web
+    name: callfar-backend
+    env: node
+    plan: free
+    region: frankfurt # or oregon, ohio, singapore
+    rootDir: callfar-backend
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: API_PREFIX
+        value: /api/v1
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DATABASE_URL
+        sync: false # Set to Supabase Transaction Pooler URL (port 6543)
+      - key: DIRECT_URL
+        sync: false # Set to Supabase Direct Connection URL (port 5432)
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRATION
+        value: 15m
+      - key: JWT_REFRESH_EXPIRATION_DAYS
+        value: 30
+      - key: STUN_SERVERS
+        value: stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302,stun:stun.cloudflare.com:3478
+      - key: TURN_SERVER_URL
+        sync: false
+      - key: TURN_SERVER_USERNAME
+        sync: false
+      - key: TURN_SERVER_CREDENTIAL
+        sync: false
