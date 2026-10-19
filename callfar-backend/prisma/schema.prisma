@@ -1,0 +1,340 @@
+// Prisma Schema for CallFar Platform
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum LicenseTier {
+  FREE
+  PRO
+  ENTERPRISE
+  MASTER_ADMIN
+}
+
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  REVOKED
+}
+
+enum ContactRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+enum CallStatus {
+  INITIATED
+  RINGING
+  ONGOING
+  COMPLETED
+  REJECTED
+  MISSED
+  FAILED
+}
+
+enum ParticipantStatus {
+  INVITED
+  CONNECTED
+  LEFT
+  DECLINED
+  BUSY
+}
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  email            String    @unique
+  username         String    @unique
+  passwordHash     String    @map("password_hash")
+  phoneNumber      String?   @unique @map("phone_number")
+  isPhoneVerified  Boolean   @default(false) @map("is_phone_verified")
+  isActive         Boolean   @default(true) @map("is_active")
+  role             Role      @default(MEMBER)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // 1-to-1 relations
+  profile          UserProfile?
+  settings         UserSettings?
+  license          UserLicense?
+
+  // 1-to-many relations
+  refreshTokens    RefreshToken[]
+  devices          Device[]
+  createdLicenseKeys  LicenseKey[]       @relation("CreatedLicenseKeys")
+  redeemedLicenseKeys LicenseKey[]       @relation("RedeemedLicenseKeys")
+  
+  // Contacts
+  contacts         Contact[]             @relation("UserContacts")
+  contactOf        Contact[]             @relation("ContactTarget")
+  
+  // Contact Requests
+  sentRequests     ContactRequest[]      @relation("SentRequests")
+  receivedRequests ContactRequest[]      @relation("ReceivedRequests")
+  
+  // Blocking
+  blockedUsers     BlockedUser[]         @relation("Blocker")
+  blockedBy        BlockedUser[]         @relation("Blocked")
+  
+  // Conversations & Messages
+  conversations    ConversationMember[]
+  messages         Message[]
+  
+  // Calls
+  initiatedCalls   Call[]                @relation("CallInitiator")
+  callParticipations CallParticipant[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @map("user_id") @db.Uuid
+  displayName String    @map("display_name")
+  avatarUrl   String?   @map("avatar_url")
+  bio         String?   @db.VarChar(500)
+  lastSeen    DateTime  @default(now()) @map("last_seen")
+  isOnline    Boolean   @default(false) @map("is_online")
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSettings {
+  id                   String   @id @default(uuid()) @db.Uuid
+  userId               String   @unique @map("user_id") @db.Uuid
+  theme                String   @default("system") // light, dark, system
+  allowIncomingCalls   Boolean  @default(true) @map("allow_incoming_calls")
+  allowReadReceipts    Boolean  @default(true) @map("allow_read_receipts")
+  callRingtone         String   @default("default") @map("call_ringtone")
+  notificationsEnabled Boolean  @default(true) @map("notifications_enabled")
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  deviceId   String?  @map("device_id")
+  expiresAt  DateTime @map("expires_at")
+  isRevoked  Boolean  @default(false) @map("is_revoked")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Device {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  deviceId   String    @map("device_id")
+  platform   String    @default("android") // android, ios
+  fcmToken   String?   @map("fcm_token")
+  lastActive DateTime  @default(now()) @map("last_active")
+
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@map("devices")
+}
+
+model Contact {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  contactUserId String   @map("contact_user_id") @db.Uuid
+  aliasName     String?  @map("alias_name")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User     @relation("UserContacts", fields: [userId], references: [id], onDelete: Cascade)
+  contactUser   User     @relation("ContactTarget", fields: [contactUserId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactUserId])
+  @@index([userId])
+  @@map("contacts")
+}
+
+model ContactRequest {
+  id         String               @id @default(uuid()) @db.Uuid
+  senderId   String               @map("sender_id") @db.Uuid
+  receiverId String               @map("receiver_id") @db.Uuid
+  status     ContactRequestStatus @default(PENDING)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  sender     User                 @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User                 @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId, status])
+  @@index([receiverId, status])
+  @@map("contact_requests")
+}
+
+model BlockedUser {
+  id        String   @id @default(uuid()) @db.Uuid
+  blockerId String   @map("blocker_id") @db.Uuid
+  blockedId String   @map("blocked_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@map("blocked_users")
+}
+
+model Conversation {
+  id        String             @id @default(uuid()) @db.Uuid
+  type      ConversationType   @default(DIRECT)
+  title     String?            @db.VarChar(120)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  members   ConversationMember[]
+  messages  Message[]
+  calls     Call[]
+
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  role           Role         @default(MEMBER)
+  joinedAt       DateTime     @default(now()) @map("joined_at")
+  lastReadAt     DateTime?    @map("last_read_at")
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String        @id @default(uuid()) @db.Uuid
+  conversationId String        @map("conversation_id") @db.Uuid
+  senderId       String        @map("sender_id") @db.Uuid
+  content        String        @db.Text
+  status         MessageStatus @default(SENT)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Call {
+  id              String            @id @default(uuid()) @db.Uuid
+  initiatorId     String            @map("initiator_id") @db.Uuid
+  conversationId  String?           @map("conversation_id") @db.Uuid
+  callType        CallType          @default(VOICE) @map("call_type")
+  status          CallStatus        @default(INITIATED)
+  startedAt       DateTime          @default(now()) @map("started_at")
+  answeredAt      DateTime?         @map("answered_at")
+  endedAt         DateTime?         @map("ended_at")
+  durationSeconds Int               @default(0) @map("duration_seconds")
+
+  initiator       User              @relation("CallInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  conversation    Conversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  participants    CallParticipant[]
+
+  @@index([initiatorId])
+  @@map("calls")
+}
+
+model CallParticipant {
+  id        String            @id @default(uuid()) @db.Uuid
+  callId    String            @map("call_id") @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  status    ParticipantStatus @default(INVITED)
+  joinedAt  DateTime?         @map("joined_at")
+  leftAt    DateTime?         @map("left_at")
+
+  call      Call              @relation(fields: [callId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([callId, userId])
+  @@index([userId])
+  @@map("call_participants")
+}
+
+model UserLicense {
+  id                     String        @id @default(uuid()) @db.Uuid
+  userId                 String        @unique @map("user_id") @db.Uuid
+  tier                   LicenseTier   @default(FREE)
+  status                 LicenseStatus @default(ACTIVE)
+  maxCallDurationMinutes Int           @default(15) @map("max_call_duration_minutes") // -1 = unlimited
+  canVideoCall           Boolean       @default(true) @map("can_video_call")
+  canHdAudio             Boolean       @default(false) @map("can_hd_audio")
+  canScreenShare         Boolean       @default(false) @map("can_screen_share")
+  canRecordCalls         Boolean       @default(false) @map("can_record_calls")
+  priorityTurn           Boolean       @default(false) @map("priority_turn")
+  expiresAt              DateTime?     @map("expires_at")
+  licenseKey             String?       @map("license_key")
+  issuedBy               String?       @map("issued_by") @db.Uuid
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_licenses")
+}
+
+model LicenseKey {
+  id           String        @id @default(uuid()) @db.Uuid
+  key          String        @unique
+  tier         LicenseTier   @default(PRO)
+  durationDays Int           @default(30) @map("duration_days") // -1 = lifetime
+  isRedeemed   Boolean       @default(false) @map("is_redeemed")
+  redeemedById String?       @map("redeemed_by_id") @db.Uuid
+  redeemedAt   DateTime?     @map("redeemed_at")
+  createdById  String        @map("created_by_id") @db.Uuid
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  creator      User          @relation("CreatedLicenseKeys", fields: [createdById], references: [id], onDelete: Cascade)
+  redeemer     User?         @relation("RedeemedLicenseKeys", fields: [redeemedById], references: [id], onDelete: SetNull)
+
+  @@index([key])
+  @@map("license_keys")
+}

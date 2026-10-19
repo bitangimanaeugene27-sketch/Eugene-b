@@ -1,0 +1,15 @@
+{
+  "name": "callfar",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "start-callfar.bat",
+    "start": "start-callfar.bat",
+    "app": "adb shell am force-stop com.callfar.app && adb shell am start -n com.callfar.app/.MainActivity",
+    "backend": "npm --prefix callfar-backend run dev",
+    "mobile": "npm --prefix callfar-mobile run start --dev-client --port 8081",
+    "admin": "npm --prefix callfar-admin run dev",
+    "start:usb": "npm --prefix callfar-mobile run start:usb",
+    "reverse": "adb reverse tcp:5000 tcp:5000 && adb reverse tcp:8081 tcp:8081"
+  }
+}

@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CallFar Admin Hub — Unified Communications Management Platform</title>
+  <meta name="description" content="Executive Administration System for CallFar encrypted communication platform. Manage users, calls, licenses, telecom gateways, and system infrastructure." />
+  
+  <!-- Favicon & Stylesheet -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+  <link rel="stylesheet" href="css/index.css" />
+</head>
+<body>
+  <div class="admin-layout">
+    <!-- ======================================================================
+         Sidebar Navigation
+         ====================================================================== -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="#overview" class="brand-wrapper">
+          <div class="brand-logo-icon">🛡️</div>
+          <div class="brand-text-wrap">
+            <span class="brand-title">CallFar</span>
+            <span class="brand-badge">ADMIN HUB</span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <!-- Core Category -->
+        <div class="nav-category">Overview & Core</div>
+        <a class="nav-item active" data-view="overview">
+          <span class="nav-icon">📊</span>
+          <span>Overview</span>
+        </a>
+        <a class="nav-item" data-view="users">
+          <span class="nav-icon">👥</span>
+          <span>Users & Accounts</span>
+          <span class="nav-badge" id="badge-total-users">--</span>
+        </a>
+        <a class="nav-item" data-view="calls">
+          <span class="nav-icon">📞</span>
+          <span>Voice & Video Calls</span>
+          <span class="nav-badge" id="badge-total-calls">--</span>
+        </a>
+        <a class="nav-item" data-view="contacts">
+          <span class="nav-icon">🤝</span>
+          <span>Contacts & Friends</span>
+        </a>
+        <a class="nav-item" data-view="messages">
+          <span class="nav-icon">💬</span>
+          <span>Messages & Chat</span>
+        </a>
+
+        <!-- Security & Governance -->
+        <div class="nav-category">Security & Governance</div>
+        <a class="nav-item" data-view="security">
+          <span class="nav-icon">🔒</span>
+          <span>Security & Sessions</span>
+        </a>
+        <a class="nav-item" data-view="audit">
+          <span class="nav-icon">📜</span>
+          <span>Audit Logs</span>
+        </a>
+        <a class="nav-item" data-view="privacy">
+          <span class="nav-icon">🗄️</span>
+          <span>Privacy & Backups</span>
+        </a>
+
+        <!-- Operations & Health -->
+        <div class="nav-category">Operations & Health</div>
+        <a class="nav-item" data-view="broadcast">
+          <span class="nav-icon">📢</span>
+          <span>System Broadcasts</span>
+        </a>
+        <a class="nav-item" data-view="analytics">
+          <span class="nav-icon">📈</span>
+          <span>Analytics & Reports</span>
+        </a>
+        <a class="nav-item" data-view="infrastructure">
+          <span class="nav-icon">⚡</span>
+          <span>Infrastructure & STUN</span>
+        </a>
+        <a class="nav-item" data-view="support">
+          <span class="nav-icon">🎫</span>
+          <span>Support & Tickets</span>
+          <span class="nav-badge danger" id="badge-open-tickets">1</span>
+        </a>
+
+        <!-- Settings & Configuration -->
+        <div class="nav-category">Settings & Licenses</div>
+        <a class="nav-item" data-view="config">
+          <span class="nav-icon">⚙️</span>
+          <span>App Configuration</span>
+        </a>
+        <a class="nav-item" data-view="licenses">
+          <span class="nav-icon">🔑</span>
+          <span>License Keys</span>
+        </a>
+        <a class="nav-item" data-view="staff">
+          <span class="nav-icon">👑</span>
+          <span>Admin Staff & Roles</span>
+        </a>
+        <a class="nav-item" data-view="telecom">
+          <span class="nav-icon">📶</span>
+          <span>Cellular Telecom</span>
+        </a>
+        <a class="nav-item" data-view="languages">
+          <span class="nav-icon">🌐</span>
+          <span>Languages & Locales</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="admin-profile-card">
+          <div class="admin-avatar" id="sidebar-avatar">A</div>
+          <div class="admin-profile-info">
+            <div class="admin-name" id="sidebar-admin-name">alice</div>
+            <div class="admin-role">MASTER ADMINISTRATOR</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
+         Main Wrapper
+         ====================================================================== -->
+    <div class="main-wrapper">
+      <!-- Top Sticky Header -->
+      <header class="top-header">
+        <div class="header-left">
+          <div class="header-title-box">
+            <h1 id="view-title">Platform Overview</h1>
+            <p id="view-subtitle">Executive real-time monitoring of CallFar communications</p>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- Pulse Health -->
+          <div class="system-status-pill">
+            <div class="pulse-dot"></div>
+            <span id="header-status-text">Server Online • 99.98% Uptime</span>
+          </div>
+
+          <!-- Header Buttons -->
+          <div class="header-actions">
+            <button class="btn-header" id="btn-refresh" title="Refresh Live Data">
+              <span>🔄</span> Refresh
+            </button>
+            <button class="btn-primary" id="btn-quick-broadcast">
+              <span>📢</span> Broadcast Alert
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content Views -->
+      <main class="content-body">
+        
+        <!-- ==================================================================
+             VIEW 1: OVERVIEW / DASHBOARD
+             ================================================================== -->
+        <section class="module-view active" id="view-overview">
+          <!-- KPI Stats Grid -->
+          <div class="stats-grid">
+            <div class="stat-card" style="--card-accent: var(--grad-cyan);">
+              <div class="stat-header">
+                <span class="stat-title">Registered Users</span>
+                <span class="stat-icon">👥</span>
+              </div>
+              <div class="stat-value" id="stat-total-users">--</div>
+              <div class="stat-sub">
+                <span class="trend-up" id="stat-active-users">-- active</span>
+                <span>•</span>
+                <span id="stat-online-users">-- online</span>
+              </div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--grad-primary);">
+              <div class="stat-header">
+                <span class="stat-title">Total Voice/Video Calls</span>
+                <span class="stat-icon">📞</span>
+              </div>
+              <div class="stat-value" id="stat-total-calls">--</div>
+              <div class="stat-sub">
+                <span class="trend-up" id="stat-active-calls">-- live now</span>
+                <span>•</span>
+                <span id="stat-call-minutes">-- min total</span>
+              </div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--grad-emerald);">
+              <div class="stat-header">
+                <span class="stat-title">Instant Messages</span>
+                <span class="stat-icon">💬</span>
+              </div>
+              <div class="stat-value" id="stat-total-messages">--</div>
+              <div class="stat-sub">
+                <span class="trend-up">E2E Encrypted</span>
+                <span>• Live Signaling</span>
+              </div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--grad-amber);">
+              <div class="stat-header">
+                <span class="stat-title">License Keys</span>
+                <span class="stat-icon">🔑</span>
+              </div>
+              <div class="stat-value" id="stat-available-keys">--</div>
+              <div class="stat-sub">
+                <span class="trend-up" id="stat-redeemed-keys">-- redeemed</span>
+                <span>• Pro & Enterprise</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons Row -->
+          <div class="panel" style="padding: 16px 20px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div style="font-size: 13.5px; font-weight: 600; color: #FFFFFF; display: flex; align-items: center; gap: 8px;">
+                <span>⚡ Executive Quick Actions:</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button class="btn-header" onclick="window.adminApp.openModal('modal-create-user')">
+                  <span>➕</span> Create User / Admin
+                </button>
+                <button class="btn-header" onclick="window.adminApp.openModal('modal-gen-license')">
+                  <span>🔑</span> Generate License Keys
+                </button>
+                <button class="btn-header" onclick="window.adminApp.triggerBackup()">
+                  <span>💾</span> Trigger Database Backup
+                </button>
+                <button class="btn-header" onclick="window.adminApp.switchTab('config')">
+                  <span>⚙️</span> System Settings
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Growth & Call Trend Panels Grid -->
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px;">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <span class="panel-title-icon">📈</span> Platform Traffic & Call Activity
+                </div>
+                <div class="panel-actions">
+                  <span style="font-size: 12px; color: var(--text-muted);">Last 7 Days</span>
+                </div>
+              </div>
+              <!-- Simulated Interactive Bar Chart -->
+              <div class="chart-container" id="overview-chart">
+                <!-- Dynamically populated by JS -->
+              </div>
+            </div>
+
+            <!-- Server Telemetry Card -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">
+                  <span class="panel-title-icon">⚡</span> System Telemetry
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 14px; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="color: var(--text-secondary);">Core Backend Status</span>
+                  <span style="color: var(--accent-emerald); font-weight: 600;">HEALTHY (UP)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="color: var(--text-secondary);">System Uptime</span>
+                  <span id="overview-uptime" style="font-weight: 600; color: #FFFFFF;">--</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="color: var(--text-secondary);">Database Latency</span>
+                  <span id="overview-db-ping" style="color: var(--accent-cyan); font-weight: 600;">-- ms</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                  <span style="color: var(--text-secondary);">Memory RSS / Heap</span>
+                  <span id="overview-memory" style="font-weight: 600; color: #FFFFFF;">-- MB</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">WebRTC STUN / TURN</span>
+                  <span style="color: var(--accent-emerald); font-weight: 600;">ACTIVE (Google Cluster)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Activity & Audit Feed -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📜</span> Recent Audit Trail & Administrative Events
+              </div>
+              <button class="btn-header" onclick="window.adminApp.switchTab('audit')">View All Logs →</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Administrator</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-audit-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading audit events...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 2: USERS & ACCOUNTS
+             ================================================================== -->
+        <section class="module-view" id="view-users">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">👥</span> Registered Users Directory
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.openModal('modal-create-user')">
+                  <span>➕</span> Create User / Admin
+                </button>
+              </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="toolbar-row">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" id="users-search" placeholder="Search by name, @username, email, phone..." />
+              </div>
+              <div class="filter-group">
+                <select class="filter-select" id="users-filter-role">
+                  <option value="">All Roles</option>
+                  <option value="ADMIN">Administrators</option>
+                  <option value="MEMBER">Standard Members</option>
+                </select>
+                <select class="filter-select" id="users-filter-status">
+                  <option value="">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+                <select class="filter-select" id="users-filter-tier">
+                  <option value="">All License Tiers</option>
+                  <option value="FREE">Free</option>
+                  <option value="PRO">Pro</option>
+                  <option value="ENTERPRISE">Enterprise</option>
+                  <option value="MASTER_ADMIN">Master Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Users Table -->
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>License Tier</th>
+                    <th>Status</th>
+                    <th>Activity Stats</th>
+                    <th>Joined</th>
+                    <th style="text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody">
+                  <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading users...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 3: CALLS & AUDIT LOGS
+             ================================================================== -->
+        <section class="module-view" id="view-calls">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📞</span> Voice & Video Call Audit Logs
+              </div>
+              <div class="panel-actions">
+                <button class="btn-header" onclick="window.adminApp.loadCalls()">
+                  <span>🔄</span> Refresh Logs
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-row">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" id="calls-search" placeholder="Search calls by initiator or participant..." />
+              </div>
+              <div class="filter-group">
+                <select class="filter-select" id="calls-filter-type">
+                  <option value="">All Call Types</option>
+                  <option value="VOICE">Audio Only</option>
+                  <option value="VIDEO">Video Call</option>
+                </select>
+                <select class="filter-select" id="calls-filter-status">
+                  <option value="">All Outcomes</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="MISSED">Missed</option>
+                  <option value="REJECTED">Declined</option>
+                  <option value="ONGOING">Live Ongoing</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Initiator</th>
+                    <th>Participants</th>
+                    <th>Call Type</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="calls-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading calls...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 4: CONTACTS & SOCIAL GRAPH
+             ================================================================== -->
+        <section class="module-view" id="view-contacts">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🤝</span> Contacts & Friend Relationships
+              </div>
+            </div>
+
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-title">Confirmed Friendships</div>
+                <div class="stat-value" id="contacts-stat-total">--</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Pending Invitations</div>
+                <div class="stat-value" id="contacts-stat-pending">--</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Blocked Users</div>
+                <div class="stat-value" id="contacts-stat-blocked">--</div>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Friend Contact</th>
+                    <th>Alias</th>
+                    <th>Connected Date</th>
+                  </tr>
+                </thead>
+                <tbody id="contacts-tbody">
+                  <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading contacts graph...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 5: MESSAGES & CHAT
+             ================================================================== -->
+        <section class="module-view" id="view-messages">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">💬</span> Messaging & Chat Infrastructure
+              </div>
+            </div>
+
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-title">Total Messages Sent</div>
+                <div class="stat-value" id="msg-stat-total">--</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Messages Today</div>
+                <div class="stat-value" id="msg-stat-today">--</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Active Conversations</div>
+                <div class="stat-value" id="msg-stat-conversations">--</div>
+              </div>
+            </div>
+
+            <div class="panel-title" style="margin-bottom: 14px; font-size: 15px;">Active Conversation Threads</div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Members</th>
+                    <th>Message Count</th>
+                    <th>Last Active</th>
+                  </tr>
+                </thead>
+                <tbody id="messages-tbody">
+                  <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading conversations...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 6: SECURITY & SESSIONS
+             ================================================================== -->
+        <section class="module-view" id="view-security">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🔒</span> Security, Authentication & Session Policies
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--accent-cyan);">Active Security Controls</h3>
+                <ul style="list-style: none; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--text-secondary);">
+                  <li>✅ <strong>JWT Token Architecture:</strong> 7-day access token with rotating refresh tokens</li>
+                  <li>✅ <strong>Argon2 / BCrypt Password Hashing:</strong> Multi-pass cryptographic salting</li>
+                  <li>✅ <strong>Role-Based Route Guard:</strong> Administrator endpoints strictly enforced at API gateway</li>
+                  <li>✅ <strong>Rate Limiting:</strong> Global anti-DDoS throttler active (1,000 req/15min)</li>
+                  <li>✅ <strong>Session Invalidation:</strong> User suspension automatically revokes all active tokens</li>
+                </ul>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--accent-amber);">Immediate Threat Response</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                  If a compromised account or abnormal dialing spike is detected, administrators can terminate all active tokens across all mobile and web devices instantly.
+                </p>
+                <button class="btn-primary" style="background: var(--grad-rose);" onclick="window.adminApp.switchTab('users')">
+                  Go to Users Directory to Suspend Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 7: AUDIT LOGS
+             ================================================================== -->
+        <section class="module-view" id="view-audit">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📜</span> Administrator Action Audit Trail
+              </div>
+              <div class="panel-actions">
+                <button class="btn-header" onclick="window.adminApp.exportAuditCSV()">
+                  <span>📥</span> Export CSV
+                </button>
+                <button class="btn-header" onclick="window.adminApp.loadAuditLogs()">
+                  <span>🔄</span> Refresh
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-row">
+              <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" id="audit-search" placeholder="Search by admin, action, target..." />
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Administrator</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Details</th>
+                    <th>IP Address</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-tbody">
+                  <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading audit logs...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 8: PRIVACY & BACKUPS
+             ================================================================== -->
+        <section class="module-view" id="view-privacy">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🗄️</span> Database Backups & Data Governance
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.triggerBackup()">
+                  <span>💾</span> Trigger Snapshot Backup Now
+                </button>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 20px; font-size: 13.5px; color: var(--text-secondary);">
+              Automated database snapshots preserve user credentials, call audit records, and contact networks. Stored snapshots can be verified and downloaded below.
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Snapshot File</th>
+                    <th>Size</th>
+                    <th>Created At</th>
+                    <th>Created By</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Tables</th>
+                  </tr>
+                </thead>
+                <tbody id="backups-tbody">
+                  <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading backups...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 9: SYSTEM BROADCASTS
+             ================================================================== -->
+        <section class="module-view" id="view-broadcast">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📢</span> Live System Announcement Engine
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.openModal('modal-broadcast')">
+                  <span>🚀</span> Send Announcement Now
+                </button>
+              </div>
+            </div>
+
+            <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 20px;">
+              Broadcast messages are delivered instantly via WebSocket signaling to all connected mobile devices, appearing as high-priority notification banners.
+            </p>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Message</th>
+                    <th>Priority</th>
+                    <th>Sent By</th>
+                    <th>Timestamp</th>
+                    <th>Recipients</th>
+                  </tr>
+                </thead>
+                <tbody id="broadcasts-tbody">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No broadcast announcements recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 10: ANALYTICS & REPORTS
+             ================================================================== -->
+        <section class="module-view" id="view-analytics">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📈</span> Comprehensive Usage & Performance Analytics
+              </div>
+              <div class="panel-actions">
+                <button class="btn-header" onclick="window.adminApp.exportPlatformSummary()">
+                  <span>📥</span> Download Full Report (JSON)
+                </button>
+              </div>
+            </div>
+
+            <div class="stats-grid" style="margin-bottom: 24px;">
+              <div class="stat-card">
+                <div class="stat-title">Call Success Rate</div>
+                <div class="stat-value" style="color: var(--accent-emerald);">94.8%</div>
+                <div class="stat-sub">Completed vs failed</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Average Call Duration</div>
+                <div class="stat-value" style="color: var(--accent-cyan);">4m 12s</div>
+                <div class="stat-sub">Stable OPUS stream</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">PSTN Carrier Handoff</div>
+                <div class="stat-value" style="color: var(--accent-amber);">100%</div>
+                <div class="stat-sub">MTN & Airtel Rwanda</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-title">Platform Uptime</div>
+                <div class="stat-value" style="color: var(--accent-emerald);">99.98%</div>
+                <div class="stat-sub">High availability</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 11: INFRASTRUCTURE & STUN
+             ================================================================== -->
+        <section class="module-view" id="view-infrastructure">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">⚡</span> Server Infrastructure, WebRTC Signaling & Health
+              </div>
+              <div class="panel-actions">
+                <button class="btn-header" onclick="window.adminApp.loadInfrastructure()">
+                  <span>🔄</span> Refresh Telemetry
+                </button>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 14px; color: var(--accent-cyan);">Node.js Runtime & Memory</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Node Version:</span>
+                    <span id="infra-node" style="font-weight: 600; color: #FFFFFF;">--</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Platform OS:</span>
+                    <span id="infra-platform" style="font-weight: 600; color: #FFFFFF;">--</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Resident Set Size (RSS):</span>
+                    <span id="infra-rss" style="color: var(--accent-amber); font-weight: 600;">-- MB</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Heap Used:</span>
+                    <span id="infra-heap" style="color: var(--accent-emerald); font-weight: 600;">-- MB</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 14px; color: var(--accent-emerald);">WebRTC STUN / TURN & Database</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">PostgreSQL Database:</span>
+                    <span style="color: var(--accent-emerald); font-weight: 600;">CONNECTED</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Query Latency (Ping):</span>
+                    <span id="infra-db-latency" style="color: var(--accent-cyan); font-weight: 600;">-- ms</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">Signaling WebSocket Connections:</span>
+                    <span id="infra-sockets" style="color: var(--accent-amber); font-weight: 600;">-- active</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="color: var(--text-secondary);">STUN Server Cluster:</span>
+                    <span style="font-weight: 600; color: #FFFFFF;">stun.l.google.com:19302</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 12: SUPPORT & TICKETS
+             ================================================================== -->
+        <section class="module-view" id="view-support">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🎫</span> Customer Support & Issue Resolution Desk
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.openModal('modal-create-ticket')">
+                  <span>➕</span> New Support Ticket
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ticket ID</th>
+                    <th>User / Email</th>
+                    <th>Subject</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Resolution</th>
+                    <th style="text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="support-tbody">
+                  <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading support tickets...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 13: APP CONFIGURATION
+             ================================================================== -->
+        <section class="module-view" id="view-config">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">⚙️</span> Live System Settings & Feature Flags
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.saveConfig()">
+                  <span>💾</span> Save & Apply Changes
+                </button>
+              </div>
+            </div>
+
+            <div style="max-width: 680px;">
+              <div class="toggle-row">
+                <div>
+                  <div style="font-size: 14px; font-weight: 600; color: #FFFFFF;">Maintenance Mode</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Displays maintenance notice to mobile users and restricts call initiation</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="cfg-maintenance-mode" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group" style="margin-top: 14px;">
+                <label class="form-label">Maintenance Advisory Message</label>
+                <input type="text" class="form-control" id="cfg-maintenance-msg" />
+              </div>
+
+              <div class="toggle-row">
+                <div>
+                  <div style="font-size: 14px; font-weight: 600; color: #FFFFFF;">Allow Public Registrations</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Permits new friends and family to sign up for CallFar accounts</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="cfg-allow-registrations" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="form-group" style="margin-top: 14px;">
+                <label class="form-label">Default Free Call Limit (Minutes)</label>
+                <input type="number" class="form-control" id="cfg-call-limit" value="15" />
+                <div class="form-hint">Set to -1 for unlimited duration across all member accounts</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Minimum Required Mobile App Version</label>
+                <input type="text" class="form-control" id="cfg-min-version" value="1.0.0" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Allowed Media Features</label>
+                <div style="display: flex; gap: 20px; margin-top: 8px;">
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #FFFFFF;">
+                    <input type="checkbox" id="cfg-media-audio" checked /> Audio Calling
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #FFFFFF;">
+                    <input type="checkbox" id="cfg-media-video" checked /> Video Calling
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #FFFFFF;">
+                    <input type="checkbox" id="cfg-media-screen" checked /> Screen Sharing
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 14: LICENSE KEYS & SUBSCRIPTIONS
+             ================================================================== -->
+        <section class="module-view" id="view-licenses">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🔑</span> License Keys & Subscription Activation Engine
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.openModal('modal-gen-license')">
+                  <span>⚡</span> Generate New Activation Keys
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Activation Key</th>
+                    <th>Tier</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th>Generated By</th>
+                    <th>Redeemed By</th>
+                    <th>Created</th>
+                    <th style="text-align: right;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="licenses-tbody">
+                  <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading license keys...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 15: ADMIN STAFF & ROLES
+             ================================================================== -->
+        <section class="module-view" id="view-staff">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">👑</span> System Administrators & RBAC Roles
+              </div>
+              <div class="panel-actions">
+                <button class="btn-primary" onclick="window.adminApp.openModal('modal-create-user')">
+                  <span>➕</span> Add Administrator
+                </button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Administrator</th>
+                    <th>Privilege Level</th>
+                    <th>License Entitlement</th>
+                    <th>Account Status</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody id="staff-tbody">
+                  <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading administrative staff...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 16: CELLULAR TELECOM
+             ================================================================== -->
+        <section class="module-view" id="view-telecom">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">📶</span> Cellular Telecom & PSTN Gateway Oversight
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--accent-amber);">Rwanda Cellular Carriers (+250)</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary);">
+                  <div>🟡 <strong>MTN Rwanda:</strong> Prefix <code>078</code>, <code>079</code> — Route Status: Active</div>
+                  <div>🔴 <strong>Airtel Rwanda:</strong> Prefix <code>072</code>, <code>073</code> — Route Status: Active</div>
+                  <div>🟢 <strong>Direct GSM Bridge:</strong> Android Telecom Framework via Device Native SIM</div>
+                </div>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <h3 style="font-size: 15px; margin-bottom: 12px; color: var(--accent-cyan);">East Africa & Global PSTN</h3>
+                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary);">
+                  <div>🇰🇪 <strong>Kenya:</strong> +254 (Safaricom / Airtel)</div>
+                  <div>🇺🇬 <strong>Uganda:</strong> +256 (MTN / Airtel)</div>
+                  <div>🇹🇿 <strong>Tanzania:</strong> +255 (Vodacom / Airtel)</div>
+                  <div>🌐 <strong>International:</strong> E.164 Global Standard Format</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 17: LANGUAGES & LOCALES
+             ================================================================== -->
+        <section class="module-view" id="view-languages">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="panel-title-icon">🌐</span> Multi-Language & Accessibility Management
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🇬🇧</div>
+                <h3 style="font-size: 15px; color: #FFFFFF; margin-bottom: 4px;">English (Default)</h3>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px;">Full interface translation with standard terminology.</p>
+                <span class="badge badge-active">100% Translated</span>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🇷🇼</div>
+                <h3 style="font-size: 15px; color: #FFFFFF; margin-bottom: 4px;">Ikinyarwanda</h3>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px;">Local language support for CallFar community.</p>
+                <span class="badge badge-active">100% Translated</span>
+              </div>
+
+              <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px;">
+                <div style="font-size: 24px; margin-bottom: 8px;">🇫🇷</div>
+                <h3 style="font-size: 15px; color: #FFFFFF; margin-bottom: 4px;">Français</h3>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px;">French regional language support.</p>
+                <span class="badge badge-active">100% Translated</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODALS
+       ====================================================================== -->
+
+  <!-- Modal: Create User / Admin -->
+  <div class="modal-overlay" id="modal-create-user">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Create User or Administrator</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-create-user')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Full Name *</label>
+          <input type="text" class="form-control" id="create-user-fullname" placeholder="e.g. Samuel Green" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username *</label>
+          <input type="text" class="form-control" id="create-user-username" placeholder="letters, numbers, underscore only" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          <input type="email" class="form-control" id="create-user-email" placeholder="e.g. samuel@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password *</label>
+          <input type="password" class="form-control" id="create-user-password" placeholder="Min 8 chars, 1 uppercase, 1 digit" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number (Optional)</label>
+          <input type="text" class="form-control" id="create-user-phone" placeholder="e.g. +250788123456" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Account Role *</label>
+          <select class="form-control" id="create-user-role">
+            <option value="MEMBER">Standard Member</option>
+            <option value="ADMIN">System Administrator</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Initial License Tier *</label>
+          <select class="form-control" id="create-user-tier">
+            <option value="FREE">FREE (15 min call limit)</option>
+            <option value="PRO" selected>PRO (Unlimited calls, HD audio)</option>
+            <option value="ENTERPRISE">ENTERPRISE (Full features + recording)</option>
+            <option value="MASTER_ADMIN">MASTER ADMIN (Unlimited authority)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-create-user')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitCreateUser()">Create Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Generate License Keys -->
+  <div class="modal-overlay" id="modal-gen-license">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Generate License Activation Keys</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-gen-license')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">License Tier</label>
+          <select class="form-control" id="gen-key-tier">
+            <option value="PRO" selected>PRO Plan</option>
+            <option value="ENTERPRISE">ENTERPRISE Plan</option>
+            <option value="MASTER_ADMIN">MASTER ADMIN</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duration</label>
+          <select class="form-control" id="gen-key-duration">
+            <option value="7">7 Days Trial</option>
+            <option value="30" selected>30 Days (Monthly)</option>
+            <option value="90">90 Days (Quarterly)</option>
+            <option value="365">365 Days (Annual)</option>
+            <option value="-1">Lifetime / Permanent</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of Keys</label>
+          <input type="number" class="form-control" id="gen-key-count" min="1" max="50" value="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Custom Prefix (Optional)</label>
+          <input type="text" class="form-control" id="gen-key-prefix" placeholder="e.g. VIP, FAMILY, TEAM" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes / Recipient (Optional)</label>
+          <input type="text" class="form-control" id="gen-key-notes" placeholder="e.g. For Family Group 1" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-gen-license')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitGenerateKeys()">Generate Keys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Broadcast System Alert -->
+  <div class="modal-overlay" id="modal-broadcast">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Broadcast System Announcement</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-broadcast')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Alert Priority</label>
+          <select class="form-control" id="broadcast-priority">
+            <option value="NORMAL" selected>Normal (Informational)</option>
+            <option value="HIGH">High (Important Notice)</option>
+            <option value="URGENT">Urgent (Service Critical Alert)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Announcement Title *</label>
+          <input type="text" class="form-control" id="broadcast-title" placeholder="e.g. Scheduled Network Maintenance" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message Content *</label>
+          <textarea class="form-control" id="broadcast-message" placeholder="Type your message to be pushed in real-time to all users..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-broadcast')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitBroadcast()">Broadcast to All Devices</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Reset User Password -->
+  <div class="modal-overlay" id="modal-reset-password">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Reset User Password</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-reset-password')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="reset-pwd-userid" />
+        <div style="font-size: 13.5px; margin-bottom: 16px; color: var(--text-secondary);">
+          Resetting password for: <strong id="reset-pwd-username" style="color: #FFFFFF;">--</strong>
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password *</label>
+          <input type="text" class="form-control" id="reset-pwd-new" placeholder="Enter new password (min 6 chars)" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-reset-password')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitResetPassword()">Set New Password</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Create Support Ticket -->
+  <div class="modal-overlay" id="modal-create-ticket">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Create Support Ticket</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-create-ticket')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">User / Username *</label>
+          <input type="text" class="form-control" id="ticket-username" placeholder="e.g. bob" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address *</label>
+          <input type="email" class="form-control" id="ticket-email" placeholder="e.g. bob@callfar.test" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-control" id="ticket-category">
+            <option value="CALLING">Calling & Audio/Video</option>
+            <option value="ACCOUNT">Account & Authentication</option>
+            <option value="BILLING">Billing & Licenses</option>
+            <option value="BUG">Bug Report</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-control" id="ticket-priority">
+            <option value="LOW">Low</option>
+            <option value="MEDIUM" selected>Medium</option>
+            <option value="HIGH">High</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Subject *</label>
+          <input type="text" class="form-control" id="ticket-subject" placeholder="Brief summary of the issue" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description *</label>
+          <textarea class="form-control" id="ticket-desc" placeholder="Detailed description of the problem or request..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-create-ticket')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitCreateTicket()">Create Ticket</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Master App Script -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

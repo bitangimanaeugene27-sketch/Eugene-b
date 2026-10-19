@@ -1,0 +1,37 @@
+{
+  "name": "callfar-mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start --dev-client --port 8081",
+    "start:usb": "npm run reverse && expo start --dev-client --port 8081 --clear",
+    "reverse": "adb reverse tcp:5000 tcp:5000 && adb reverse tcp:8081 tcp:8081",
+    "android": "expo run:android",
+    "android:usb": "npm run reverse && expo run:android",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.10.1",
+    "axios": "^1.7.7",
+    "expo": "^57.0.28",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-vector-icons": "^10.2.0",
+    "react-native-webrtc": "^124.0.4",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/react": "^19.1.1",
+    "@types/react-native-vector-icons": "^6.4.18",
+    "babel-preset-expo": "~12.0.0",
+    "typescript": "~5.3.3"
+  },
+  "private": true
+}

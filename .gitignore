@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables & secrets
+.env
+**/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!**/.env.example
+
+# Build outputs & Transpiled Code
+dist/
+**/dist/
+build/
+**/build/
+.expo/
+**/.expo/
+
+# Android Native Builds & Gradle
+callfar-mobile/android/.gradle/
+callfar-mobile/android/app/build/
+callfar-mobile/android/build/
+callfar-mobile/android/app/.cxx/
+callfar-mobile/android/local.properties
+*.apk
+*.aab
+
+# IDE & OS Files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coturn runtime
+coturn/*.pid
+coturn/*.log
