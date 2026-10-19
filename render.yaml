@@ -7,7 +7,7 @@ services:
     plan: free
     region: frankfurt # or oregon, ohio, singapore
     rootDir: callfar-backend
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm run start
     healthCheckPath: /health
     autoDeploy: true
