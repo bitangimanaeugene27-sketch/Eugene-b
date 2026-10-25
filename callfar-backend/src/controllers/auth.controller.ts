@@ -89,7 +89,10 @@ export class AuthController {
   static async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email } = req.body;
-      const result = await AuthService.forgotPassword(email);
+      const proto = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+      const host = (req.headers['x-forwarded-host'] as string) || req.get('host') || '';
+      const clientBaseUrl = host ? `${proto}://${host}` : undefined;
+      const result = await AuthService.forgotPassword(email, clientBaseUrl);
       res.status(200).json(result);
     } catch (err) {
       next(err);

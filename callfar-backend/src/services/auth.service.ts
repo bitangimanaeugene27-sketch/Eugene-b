@@ -424,7 +424,7 @@ export class AuthService {
   /**
    * Request password reset link and verification code for a registered email
    */
-  static async forgotPassword(email: string) {
+  static async forgotPassword(email: string, clientBaseUrl?: string) {
     const normalizedEmail = email.toLowerCase().trim();
 
     if (!EMAIL_REGEX.test(normalizedEmail)) {
@@ -436,11 +436,11 @@ export class AuthService {
       include: { profile: true },
     });
 
-    // If account not found, return friendly generic message to protect user privacy
+    // If account not found, inform the user clearly so they know to register first
     if (!user) {
-      return {
-        success: true,
-        message: 'If an account exists with this email address, a password reset link and verification code have been dispatched.',
+      throw {
+        statusCode: 404,
+        message: `No CallFar account found with email "${normalizedEmail}". Please check your email or create an account first.`,
       };
     }
 
@@ -472,7 +472,12 @@ export class AuthService {
       },
     });
 
-    const resetUrl = `${ENV.APP_URL}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
+    // Resolve optimal reset URL (dynamic request host, cloud domain, or configured APP_URL)
+    const effectiveBaseUrl = (clientBaseUrl && !clientBaseUrl.includes('localhost'))
+      ? clientBaseUrl
+      : (ENV.APP_URL || clientBaseUrl || 'http://172.23.224.248:5000');
+
+    const resetUrl = `${effectiveBaseUrl}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
 
     const emailResult = await EmailService.sendPasswordResetEmail({
       to: user.email,
