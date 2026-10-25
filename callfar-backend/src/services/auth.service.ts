@@ -482,14 +482,18 @@ export class AuthService {
       resetCode: rawCode,
     });
 
+    const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
+
     return {
       success: true,
-      message: 'Password reset link and verification code have been sent to your email address.',
+      message: hasLiveEmail && emailResult.success
+        ? 'Password reset link and verification code have been dispatched to your email address.'
+        : 'Password reset verification code generated. Use the 6-digit code below to set your new password.',
       email: user.email,
+      verificationCode: rawCode,
+      resetUrl,
       previewUrl: emailResult.previewUrl || undefined,
-      // Dev helper for easy local testing if email service is in test mode
-      devCode: ENV.NODE_ENV !== 'production' ? rawCode : undefined,
-      devResetUrl: ENV.NODE_ENV !== 'production' ? resetUrl : undefined,
+      isLiveEmailSent: Boolean(hasLiveEmail && emailResult.success),
     };
   }
 

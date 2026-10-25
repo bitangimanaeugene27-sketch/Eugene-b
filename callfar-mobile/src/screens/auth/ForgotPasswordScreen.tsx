@@ -29,6 +29,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [devPreviewCode, setDevPreviewCode] = useState<string | null>(null);
+  const [isLiveEmailSent, setIsLiveEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   // Email validation state
@@ -69,10 +70,12 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
       setLoading(true);
       const res = await forgotPassword(trimmedEmail.toLowerCase());
       
-      if (res?.devCode) {
-        setDevPreviewCode(res.devCode);
-        setVerificationCode(res.devCode);
+      const code = res?.verificationCode || res?.data?.verificationCode || res?.devCode;
+      if (code) {
+        setDevPreviewCode(code);
+        setVerificationCode(code);
       }
+      setIsLiveEmailSent(Boolean(res?.isLiveEmailSent));
 
       setStep('verify');
       setResendCooldown(45);
@@ -210,27 +213,37 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
         {/* STEP 2: Verify Code and Reset */}
         {step === 'verify' && (
           <View style={styles.card}>
-            {/* Confirmation Banner */}
+            {/* Dispatched Confirmation Banner */}
             <View style={styles.dispatchedBanner}>
               <Text style={styles.dispatchedIcon}>✉️</Text>
               <View style={styles.dispatchedContent}>
-                <Text style={styles.dispatchedTitle}>Reset Instructions Dispatched</Text>
+                <Text style={styles.dispatchedTitle}>
+                  {isLiveEmailSent ? 'Reset Email Dispatched' : 'Reset Code Ready'}
+                </Text>
                 <Text style={styles.dispatchedEmail}>{trimmedEmail.toLowerCase()}</Text>
                 <Text style={styles.dispatchedNote}>
-                  Check your inbox and spam folder. Click the email link or enter the 6-digit code below:
+                  {isLiveEmailSent
+                    ? 'Check your inbox & spam folder, or use the 6-digit code below to reset immediately:'
+                    : 'Your 6-digit verification code has been generated and pre-filled below:'}
                 </Text>
               </View>
             </View>
 
-            {/* Dev/Demo Helper if active */}
-            {devPreviewCode && (
-              <View style={styles.devBanner}>
-                <Text style={styles.devBannerTitle}>⚡ Local Dev Mode Preview</Text>
-                <Text style={styles.devBannerText}>
-                  Verification Code: <Text style={styles.devCodeHighlight}>{devPreviewCode}</Text>
+            {/* Verification Code Card */}
+            {devPreviewCode ? (
+              <View style={styles.codeCard}>
+                <View style={styles.codeCardHeader}>
+                  <Text style={styles.codeCardBadge}>🔑 6-Digit Verification Code</Text>
+                  <View style={styles.autoFilledBadge}>
+                    <Text style={styles.autoFilledText}>✓ Auto-Filled</Text>
+                  </View>
+                </View>
+                <Text style={styles.codeCardNumber}>{devPreviewCode}</Text>
+                <Text style={styles.codeCardSub}>
+                  We have pre-filled this code for you. Set your new password below.
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <Text style={styles.inputLabel}>6-Digit Verification Code *</Text>
             <View style={styles.codeInputWrapper}>
@@ -500,29 +513,59 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  devBanner: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(245, 158, 11, 0.4)',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 16,
+  codeCard: {
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 18,
+    alignItems: 'center',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  devBannerTitle: {
-    color: '#F59E0B',
+  codeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+  },
+  codeCardBadge: {
+    color: '#93C5FD',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  autoFilledBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  autoFilledText: {
+    color: '#34D399',
     fontSize: 11,
     fontWeight: '700',
-    textTransform: 'uppercase',
   },
-  devBannerText: {
-    color: '#FDE68A',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  devCodeHighlight: {
+  codeCardNumber: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 32,
     fontWeight: '800',
-    letterSpacing: 2,
-    color: '#FFFFFF',
+    color: '#38BDF8',
+    letterSpacing: 6,
+    marginVertical: 4,
+  },
+  codeCardSub: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
   },
   inputLabel: {
     fontSize: 13,

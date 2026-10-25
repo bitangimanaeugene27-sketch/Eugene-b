@@ -18,18 +18,29 @@ export class EmailService {
     }
 
     if (ENV.SMTP_HOST && ENV.SMTP_USER) {
-      this.transporter = nodemailer.createTransport({
-        host: ENV.SMTP_HOST,
-        port: ENV.SMTP_PORT,
-        secure: ENV.SMTP_SECURE,
-        connectionTimeout: 8000,
-        greetingTimeout: 8000,
-        auth: {
-          user: ENV.SMTP_USER,
-          pass: ENV.SMTP_PASS,
-        },
-      });
-      console.log(`[EmailService] Using configured SMTP transport at ${ENV.SMTP_HOST}:${ENV.SMTP_PORT}`);
+      if (ENV.SMTP_HOST.toLowerCase().includes('gmail')) {
+        this.transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: ENV.SMTP_USER.trim(),
+            pass: ENV.SMTP_PASS.replace(/\s+/g, ''), // Strip spaces if user copied 16-character app password
+          },
+        });
+        console.log(`[EmailService] Using direct Gmail SMTP service with account: ${ENV.SMTP_USER.trim()}`);
+      } else {
+        this.transporter = nodemailer.createTransport({
+          host: ENV.SMTP_HOST,
+          port: ENV.SMTP_PORT,
+          secure: ENV.SMTP_SECURE || ENV.SMTP_PORT === 465,
+          connectionTimeout: 8000,
+          greetingTimeout: 8000,
+          auth: {
+            user: ENV.SMTP_USER.trim(),
+            pass: ENV.SMTP_PASS,
+          },
+        });
+        console.log(`[EmailService] Using configured SMTP transport at ${ENV.SMTP_HOST}:${ENV.SMTP_PORT}`);
+      }
     } else {
       // In development or when SMTP not provided, use an Ethereal test account or local stream fallback
       try {
