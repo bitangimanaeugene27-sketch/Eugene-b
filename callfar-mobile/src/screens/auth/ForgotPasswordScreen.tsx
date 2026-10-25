@@ -135,7 +135,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
           onPress={() => navigation.navigate('Login')}
           activeOpacity={0.7}
         >
-          <Text style={styles.backBtnText}>&larr; Back to Sign In</Text>
+          <Text style={styles.backBtnText}>← Back to Sign In</Text>
         </TouchableOpacity>
 
         {/* Top Header Card */}
@@ -185,7 +185,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
             )}
 
             <Button
-              title="Send Reset Link & Code &rarr;"
+              title="Send Reset Link & Code"
               onPress={handleRequestReset}
               loading={loading}
               style={styles.submitBtn}
@@ -279,7 +279,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
             </View>
 
             <Button
-              title="Confirm & Reset Password &rarr;"
+              title="Confirm & Reset Password"
               onPress={handleResetPassword}
               loading={loading}
               style={styles.submitBtn}
@@ -311,7 +311,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
             </Text>
 
             <Button
-              title="Sign In to CallFar Now &rarr;"
+              title="Sign In to CallFar Now"
               onPress={() => navigation.navigate('Login', { prefillIdentifier: trimmedEmail })}
               style={styles.submitBtn}
             />
