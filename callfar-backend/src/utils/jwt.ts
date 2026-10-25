@@ -23,7 +23,9 @@ export function generateRefreshToken(payload: TokenPayload): string {
 }
 
 export function verifyAccessToken(token: string): TokenPayload {
-  return jwt.verify(token, ENV.JWT_ACCESS_SECRET) as TokenPayload;
+  // Allow 2-minute clock skew/grace so tokens expiring mid-session
+  // don't immediately cause 401 on settings, ringtone, or other API saves.
+  return jwt.verify(token, ENV.JWT_ACCESS_SECRET, { clockTolerance: 120 }) as TokenPayload;
 }
 
 export function verifyRefreshToken(token: string): TokenPayload {

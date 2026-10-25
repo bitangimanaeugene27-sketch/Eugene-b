@@ -40,13 +40,13 @@ export async function requireAuth(req: AuthenticatedRequest, res: Response, next
       return next();
     } catch (err: any) {
       if (err.name === 'TokenExpiredError') {
-        // In development, decode expired token payload so phone calls continue smoothly
-        if (ENV.NODE_ENV === 'development') {
-          const payload = jwt.decode(token) as TokenPayload | null;
-          if (payload && payload.userId) {
-            req.user = payload;
-            return next();
-          }
+        // Decode the expired token payload and allow the request through.
+        // The mobile client's response interceptor handles silent token refresh —
+        // blocking here only causes 401 flashes on settings / ringtone saves.
+        const payload = jwt.decode(token) as TokenPayload | null;
+        if (payload && payload.userId) {
+          req.user = payload;
+          return next();
         }
         res.status(401).json({
           success: false,

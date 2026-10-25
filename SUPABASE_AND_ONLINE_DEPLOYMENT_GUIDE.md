@@ -125,9 +125,12 @@ Render offers automatic SSL, WebSocket support, and zero-downtime Git deployment
    - `JWT_ACCESS_SECRET`: Generate a random secure 64-char key
    - `JWT_REFRESH_SECRET`: Generate a random secure 64-char key
    - `CORS_ORIGIN`: `*`
+   - `APP_URL`: `https://callfar-backend.onrender.com` (Your live backend URL for password reset links)
+   - *(Optional for Live SMTP Emails)*: `SMTP_HOST`, `SMTP_PORT=587`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`
 5. Click **Create Web Service**.
 6. When deployment finishes, Render provides your live URL, e.g.:
    `https://callfar-backend.onrender.com`
+
 
 ---
 

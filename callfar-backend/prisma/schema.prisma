@@ -70,6 +70,49 @@ enum ParticipantStatus {
   BUSY
 }
 
+enum NotificationType {
+  MISSED_CALL
+  CONTACT_REQUEST
+  CONTACT_ACCEPTED
+  MESSAGE
+  BROADCAST
+  LICENSE_UPGRADE
+  SYSTEM
+}
+
+enum AuditAction {
+  CREATE_USER
+  DELETE_USER
+  SUSPEND_USER
+  ACTIVATE_USER
+  CHANGE_ROLE
+  RESET_PASSWORD
+  REVOKE_SESSIONS
+  UPDATE_LICENSE
+  GENERATE_KEY
+  REVOKE_KEY
+  UPDATE_CONFIG
+  BROADCAST_ANNOUNCEMENT
+  FORCE_DISCONNECT
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILURE
+}
+
+enum BroadcastPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PstnCallStatus {
+  COMPLETED
+  MISSED
+  FAILED
+}
+
 model User {
   id               String    @id @default(uuid()) @db.Uuid
   email            String    @unique
@@ -112,6 +155,14 @@ model User {
   // Calls
   initiatedCalls   Call[]                @relation("CallInitiator")
   callParticipations CallParticipant[]
+
+  // New relations
+  notifications    Notification[]
+  pushTokens       PushToken[]
+  auditLogs        AuditLog[]
+  sentBroadcasts   Broadcast[]
+  pstnCallLogs     PstnCallLog[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -157,6 +208,21 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  codeHash   String   @map("code_hash")
+  expiresAt  DateTime @map("expires_at")
+  isUsed     Boolean  @default(false) @map("is_used")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 model Device {
@@ -260,6 +326,9 @@ model Message {
   conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
+  // Media attachments
+  attachments    MediaAttachment[]
+
   @@index([conversationId, createdAt])
   @@map("messages")
 }
@@ -338,4 +407,129 @@ model LicenseKey {
 
   @@index([key])
   @@map("license_keys")
+}
+
+// =====================================================================
+// NEW TABLES (persist data that was previously only in-memory)
+// =====================================================================
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String
+  body      String?
+  data      Json?            @default("{}")
+  isRead    Boolean          @default(false) @map("is_read")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model PushToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String
+  platform  String   @default("android")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@map("push_tokens")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  adminId       String      @map("admin_id") @db.Uuid
+  adminUsername String      @map("admin_username")
+  action        AuditAction
+  target        String?
+  details       String      @default("")
+  status        AuditStatus @default(SUCCESS)
+  ipAddress     String?     @map("ip_address")
+  userAgent     String?     @map("user_agent")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  admin         User        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([createdAt(sort: Desc)])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model Broadcast {
+  id              String            @id @default(uuid()) @db.Uuid
+  title           String
+  message         String
+  priority        BroadcastPriority @default(NORMAL)
+  sentBy          String            @map("sent_by") @db.Uuid
+  sentByUsername  String            @map("sent_by_username")
+  recipientsCount Int               @default(0) @map("recipients_count")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  sender          User              @relation(fields: [sentBy], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("broadcasts")
+}
+
+model PstnCallLog {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  destinationNumber String         @map("destination_number")
+  carrierName       String         @map("carrier_name")
+  carrierBrand      String         @map("carrier_brand")
+  countryName       String         @map("country_name")
+  countryCode       String?        @map("country_code")
+  countryFlag       String?        @map("country_flag")
+  startedAt         DateTime       @default(now()) @map("started_at")
+  durationSeconds   Int            @default(0) @map("duration_seconds")
+  costTotal         Decimal        @default(0) @map("cost_total") @db.Decimal(10, 4)
+  currency          String         @default("USD")
+  status            PstnCallStatus @default(COMPLETED)
+  provider          String         @default("AFRICAS_TALKING")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("pstn_call_logs")
+}
+
+model AppConfig {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  value     Json     @default("{}")
+  updatedBy String?  @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([key])
+  @@map("app_config")
+}
+
+model MediaAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  messageId   String   @map("message_id") @db.Uuid
+  fileUrl     String   @map("file_url")
+  fileName    String   @map("file_name")
+  fileType    String   @map("file_type")
+  fileSize    Int      @default(0) @map("file_size")
+  storagePath String?  @map("storage_path")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("media_attachments")
 }

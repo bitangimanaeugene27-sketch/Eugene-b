@@ -27,6 +27,7 @@ import {
 import { THEME } from '../../styles/theme';
 import { Avatar } from '../../components/common/Avatar';
 import { ProfileModal } from '../../components/common/ProfileModal';
+import { canDrawOverlays, requestOverlayPermission } from '../../utils/CallNotification';
 
 // ─── Preset Avatars Gallery ──────────────────────────────────────────────────
 const AVATAR_PRESETS = [
@@ -955,6 +956,7 @@ export const SettingsScreen = () => {
   const [inAppSounds, setInAppSounds] = useState(true);
   const [cacheSize, setCacheSize] = useState('3.8 MB');
   const [blockedCount, setBlockedCount] = useState<number | null>(null);
+  const [hasOverlayPermission, setHasOverlayPermission] = useState(false);
 
   // Modals
   const [showAvatarModal, setShowAvatarModal] = useState(false);
@@ -1013,7 +1015,12 @@ export const SettingsScreen = () => {
   useEffect(() => {
     refreshData();
     loadLocalSettings();
-  }, []);
+    canDrawOverlays().then(setHasOverlayPermission);
+    const unsub = navigation.addListener('focus', () => {
+      canDrawOverlays().then(setHasOverlayPermission);
+    });
+    return unsub;
+  }, [navigation]);
 
   const loadLocalSettings = async () => {
     try {
@@ -1457,6 +1464,36 @@ export const SettingsScreen = () => {
             const v = !inAppSounds;
             setInAppSounds(v);
             AsyncStorage.setItem('callfar_in_app_sounds', String(v));
+          }}
+        />
+        <Separator />
+        <NavRow
+          icon="🪟"
+          label="Pop-up Over Other Apps"
+          sub="Show incoming calls over YouTube, TikTok & games"
+          value={hasOverlayPermission ? 'Active ✅' : 'Enable ›'}
+          onPress={async () => {
+            const hasPerm = await canDrawOverlays();
+            if (hasPerm) {
+              Alert.alert(
+                '✅ Pop-up Active',
+                'CallFar is enabled to automatically pop up floating call cards over other apps like YouTube and TikTok.'
+              );
+            } else {
+              Alert.alert(
+                'Enable Call Pop-up Over Apps',
+                'Allow CallFar to display incoming call pop-ups on top of YouTube, TikTok, games, and other apps so you never miss a call.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Open Settings',
+                    onPress: () => {
+                      requestOverlayPermission();
+                    },
+                  },
+                ]
+              );
+            }
           }}
         />
       </SectionCard>

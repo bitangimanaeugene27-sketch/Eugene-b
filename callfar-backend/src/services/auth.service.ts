@@ -1,7 +1,9 @@
 import { prisma } from '../config/prisma.js';
-import { hashPassword, comparePassword, hashToken } from '../utils/crypto.js';
+import { hashPassword, comparePassword, hashToken, generateRandomToken } from '../utils/crypto.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { ENV } from '../config/env.js';
+import { EmailService } from './email.service.js';
+import { EMAIL_REGEX } from '../validations/auth.validation.js';
 
 export interface RegisterDTO {
   fullName: string;
@@ -27,6 +29,10 @@ export class AuthService {
   static async register(data: RegisterDTO) {
     const normalizedEmail = data.email.toLowerCase().trim();
     const normalizedUsername = data.username.toLowerCase().trim();
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      throw { statusCode: 400, message: 'Invalid email address. Please provide a valid email format (e.g. user@example.com).' };
+    }
 
     // Check for existing user
     const existing = await prisma.user.findFirst({
@@ -414,4 +420,180 @@ export class AuthService {
       },
     };
   }
+
+  /**
+   * Request password reset link and verification code for a registered email
+   */
+  static async forgotPassword(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      throw { statusCode: 400, message: 'Please provide a valid email address.' };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      include: { profile: true },
+    });
+
+    // If account not found, return friendly generic message to protect user privacy
+    if (!user) {
+      return {
+        success: true,
+        message: 'If an account exists with this email address, a password reset link and verification code have been dispatched.',
+      };
+    }
+
+    // Invalidate any previous unconsumed reset tokens for this user
+    await prisma.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        isUsed: false,
+      },
+      data: { isUsed: true },
+    });
+
+    // Generate secure random link token and 6-digit numeric verification code
+    const rawToken = generateRandomToken(32);
+    const rawCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const tokenHash = hashToken(rawToken);
+    const codeHash = hashToken(rawCode);
+
+    // Valid for 15 minutes
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        codeHash,
+        expiresAt,
+        isUsed: false,
+      },
+    });
+
+    const resetUrl = `${ENV.APP_URL}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
+
+    const emailResult = await EmailService.sendPasswordResetEmail({
+      to: user.email,
+      username: user.username,
+      displayName: user.profile?.displayName,
+      resetUrl,
+      resetCode: rawCode,
+    });
+
+    return {
+      success: true,
+      message: 'Password reset link and verification code have been sent to your email address.',
+      email: user.email,
+      previewUrl: emailResult.previewUrl || undefined,
+      // Dev helper for easy local testing if email service is in test mode
+      devCode: ENV.NODE_ENV !== 'production' ? rawCode : undefined,
+      devResetUrl: ENV.NODE_ENV !== 'production' ? resetUrl : undefined,
+    };
+  }
+
+  /**
+   * Verify if a reset token or code is valid
+   */
+  static async verifyResetToken(tokenOrCode: string) {
+    const trimmed = tokenOrCode.trim();
+    const targetHash = hashToken(trimmed);
+
+    const record = await prisma.passwordResetToken.findFirst({
+      where: {
+        OR: [
+          { tokenHash: targetHash },
+          { codeHash: targetHash },
+        ],
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+          },
+        },
+      },
+    });
+
+    if (!record) {
+      throw { statusCode: 400, message: 'Invalid or expired password reset link/code. Please request a new one.' };
+    }
+
+    return {
+      valid: true,
+      email: record.user.email,
+      username: record.user.username,
+    };
+  }
+
+  /**
+   * Reset user password with verified token or code
+   */
+  static async resetPassword(tokenOrCode: string, newPassword: string) {
+    const trimmed = tokenOrCode.trim();
+    const targetHash = hashToken(trimmed);
+
+    const record = await prisma.passwordResetToken.findFirst({
+      where: {
+        OR: [
+          { tokenHash: targetHash },
+          { codeHash: targetHash },
+        ],
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+      include: { user: true },
+    });
+
+    if (!record) {
+      throw { statusCode: 400, message: 'Invalid or expired password reset link/code. Please request a new one.' };
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    // Atomically update password, consume token, and revoke old refresh tokens
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: record.userId },
+        data: { passwordHash },
+      }),
+      prisma.passwordResetToken.update({
+        where: { id: record.id },
+        data: { isUsed: true },
+      }),
+      prisma.refreshToken.updateMany({
+        where: { userId: record.userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+
+    // Optional audit log
+    try {
+      if (record.user.role === 'ADMIN') {
+        await prisma.auditLog.create({
+          data: {
+            adminId: record.userId,
+            adminUsername: record.user.username,
+            action: 'RESET_PASSWORD',
+            status: 'SUCCESS',
+            target: record.user.email,
+            details: 'Self-service password reset completed via verified token/code',
+          },
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    return {
+      success: true,
+      message: 'Your password has been successfully reset! You can now log in with your new password.',
+    };
+  }
 }
+

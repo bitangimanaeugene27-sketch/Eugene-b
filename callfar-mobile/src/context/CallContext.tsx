@@ -8,6 +8,7 @@ import {
   showSystemCallNotification,
   dismissSystemCallNotification,
   addCallNotificationListeners,
+  startKeepAliveService,
 } from '../utils/CallNotification';
 
 // Optional WebRTC import handling for dev/prebuild flexibility
@@ -120,6 +121,10 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const activeCallIdRef = useRef<string>('');
   const activePeerIdRef = useRef<string>('');
   const localStreamRef = useRef<any>(null);
+  const startCallRef = useRef<any>(null);
+  // Stable refs so native notification listeners always call the latest accept/reject
+  const acceptCallRef = useRef<() => Promise<void>>(async () => {});
+  const rejectCallRef = useRef<() => void>(() => {});
 
   // Duration Timer + Audio Watchdog
   useEffect(() => {
@@ -191,6 +196,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Setup Socket listeners for calling
   useEffect(() => {
     if (!socket) return;
+
+    // Start background keepalive service to keep connection active while phone is locked
+    startKeepAliveService();
 
     // 1. Incoming Call
     socket.on(
@@ -333,13 +341,77 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupCall();
     });
 
-    // Listen for notification action buttons (when user clicks Accept/Decline on pop-up banner)
+    // 8. 📵 Recipient is Switched Off / Offline (Telecom Carrier Detection)
+    socket.on('call:unavailable', (data: {
+      callId: string;
+      receiverId?: string;
+      receiverName?: string;
+      reason: string;
+      message: string;
+    }) => {
+      console.log('[CallFar Telecom] Recipient is unavailable/switched off:', data.message);
+      soundManager.stopAll();
+      soundManager.playCallEnded();
+      soundManager.speak('The person you called is currently switched off or unavailable.');
+      cleanupCall();
+      Alert.alert(
+        '📵 Phone Switched Off / Offline',
+        data.message || 'The user you called is currently switched off or not reachable on the network. A missed call alert has been sent.',
+        [{ text: 'OK' }]
+      );
+    });
+
+    // 9. 📲 Missed Call Alerts Received When Phone Turns On / App Reconnects
+    socket.on('call:missed_alerts', (data: { count: number; alerts: any[] }) => {
+      if (!data?.alerts || data.alerts.length === 0) return;
+      const latest = data.alerts[0];
+      const callerName = latest.data?.callerName || 'A contact';
+      const callType = latest.data?.callType === 'VIDEO' ? 'Video' : 'Voice';
+      const plural = data.count > 1 ? ` (and ${data.count - 1} other)` : '';
+
+      soundManager.playCallConnected();
+
+      Alert.alert(
+        '📞 Missed Call',
+        `${callerName} called you for a ${callType} call while your phone was switched off or offline${plural}.`,
+        [
+          {
+            text: 'Dismiss',
+            style: 'cancel',
+            onPress: () => {
+              socket.emit('call:acknowledge_missed', {
+                notificationIds: data.alerts.map((a: any) => a.id),
+              });
+            },
+          },
+          {
+            text: `Call Back`,
+            onPress: () => {
+              socket.emit('call:acknowledge_missed', {
+                notificationIds: data.alerts.map((a: any) => a.id),
+              });
+              if (latest.data?.callerId && startCallRef.current) {
+                startCallRef.current(
+                  latest.data.callerId,
+                  callerName,
+                  latest.data.callType || 'VOICE',
+                  latest.data.callerAvatar
+                );
+              }
+            },
+          },
+        ]
+      );
+    });
+
+    // Listen for notification action buttons (when user clicks Accept/Decline on pop-up banner).
+    // Use stable refs to avoid stale-closure capture of incomingCall state.
     const cleanupNotifListeners = addCallNotificationListeners(
       (_callId) => {
-        acceptCall();
+        acceptCallRef.current();
       },
       (_callId) => {
-        rejectCall();
+        rejectCallRef.current();
       }
     );
 
@@ -352,6 +424,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socket.off('call:rejected');
       socket.off('call:ended');
       socket.off('call:error');
+      socket.off('call:unavailable');
+      socket.off('call:missed_alerts');
     };
   }, [socket]);
 
@@ -529,6 +603,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     callType: 'VOICE' | 'VIDEO',
     peerAvatar?: string | null
   ) => {
+    startCallRef.current = startCall;
+
     if (!user) {
       Alert.alert('Session Expired', 'Please sign in again to place calls.', [{ text: 'OK' }]);
       return;

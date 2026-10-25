@@ -15,6 +15,9 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { ServerStatusBar } from '../../components/common/ServerStatusBar';
 
+// Strict RFC 5322 regex requiring valid local part, domain labels, and TLD (min 2 letters) without consecutive dots
+const EMAIL_REGEX = /^[a-zA-Z0-9_%+-]+(?:\.[a-zA-Z0-9_%+-]+)*@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+
 type RegisterRole = 'MEMBER' | 'ADMIN';
 
 export const RegisterScreen = ({ navigation, route }: any) => {
@@ -33,6 +36,11 @@ export const RegisterScreen = ({ navigation, route }: any) => {
 
   const isAdminRole = role === 'ADMIN';
 
+  // Real-time email validation states
+  const trimmedEmail = email.trim();
+  const isEmailFilled = trimmedEmail.length > 0;
+  const isEmailValid = EMAIL_REGEX.test(trimmedEmail);
+
   const validate = (): string | null => {
     if (!fullName.trim()) return 'Full name is required.';
     if (fullName.trim().length < 2) return 'Full name must be at least 2 characters.';
@@ -44,9 +52,9 @@ export const RegisterScreen = ({ navigation, route }: any) => {
       return 'Username may only contain letters, numbers, and underscores ( _ ).';
     }
 
-    if (!email.trim()) return 'Email address is required.';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return 'Please enter a valid email address (e.g. you@example.com).';
+    if (!trimmedEmail) return 'Email address is required.';
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      return 'Please enter a valid, complete email address (e.g. you@example.com) with a valid domain extension.';
     }
 
     if (!password) return 'Password is required.';
@@ -197,6 +205,19 @@ export const RegisterScreen = ({ navigation, route }: any) => {
             autoCapitalize="none"
             autoCorrect={false}
           />
+
+          {/* Live Email Validation Feedback */}
+          {isEmailFilled && (
+            <View style={styles.emailFeedbackBox}>
+              {isEmailValid ? (
+                <Text style={styles.emailFeedbackValid}>✓ Valid email address format</Text>
+              ) : (
+                <Text style={styles.emailFeedbackInvalid}>
+                  ⚠️ Please enter a valid email address (e.g. you@example.com)
+                </Text>
+              )}
+            </View>
+          )}
 
           <Input
             label="Phone Number (Optional)"
@@ -401,6 +422,21 @@ const styles = StyleSheet.create({
   },
   linkTextAdmin: {
     color: '#FBBF24',
+  },
+  emailFeedbackBox: {
+    marginTop: -8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  emailFeedbackValid: {
+    color: '#34D399',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  emailFeedbackInvalid: {
+    color: '#F87171',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

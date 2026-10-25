@@ -10,7 +10,10 @@ import com.facebook.react.uimanager.ViewManager
 class CallNotificationPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
         CallNotificationEmitter.reactContext = reactContext
-        return listOf(CallNotificationModule(reactContext))
+        return listOf(
+            CallNotificationModule(reactContext),
+            CallKeepAliveModule(reactContext)
+        )
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<View, ReactShadowNode<*>>> {

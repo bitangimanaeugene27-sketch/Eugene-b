@@ -28,4 +28,13 @@ export const ENV = {
   TURN_SERVER_CREDENTIAL: process.env.TURN_SERVER_CREDENTIAL || '',
 
   ADMIN_INVITE_CODE: process.env.ADMIN_INVITE_CODE || 'admin2026',
+
+  // Email & Password Reset
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'CallFar Security <noreply@callfar.app>',
+  APP_URL: process.env.APP_URL || process.env.SERVER_URL || 'http://localhost:5000',
 };

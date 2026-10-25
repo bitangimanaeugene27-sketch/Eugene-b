@@ -147,7 +147,7 @@ export const switchActiveHost = async (newHost: string, persist = true) => {
   if (persist) {
     try {
       await AsyncStorage.setItem('callfar_server_host', newHost);
-    } catch {}
+    } catch { }
   }
 
   console.log(`[Host Switch] Changed backend host from ${oldHost} to ${newHost} (Cloud: ${isCloudServer(newHost)})`);
@@ -159,7 +159,7 @@ AsyncStorage.getItem('callfar_server_host').then((saved) => {
   if (saved && saved.trim()) {
     switchActiveHost(saved.trim(), false);
   }
-}).catch(() => {});
+}).catch(() => { });
 
 /**
  * Probe a candidate host with a short timeout to see if CallFar server is reachable

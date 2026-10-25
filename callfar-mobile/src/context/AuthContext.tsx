@@ -25,6 +25,8 @@ interface AuthContextType {
   updateUser: (updatedUser: Partial<User>) => void;
   refreshProfile: () => Promise<void>;
   redeemLicenseKey: (key: string) => Promise<UserLicense>;
+  forgotPassword: (email: string) => Promise<any>;
+  resetPassword: (tokenOrCode: string, newPassword: string) => Promise<any>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -170,6 +172,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return updatedLicense;
   };
 
+  const forgotPassword = async (email: string) => {
+    const res = await api.post('/auth/forgot-password', { email });
+    return res.data;
+  };
+
+  const resetPassword = async (tokenOrCode: string, newPassword: string) => {
+    const res = await api.post('/auth/reset-password', { tokenOrCode, newPassword });
+    return res.data;
+  };
+
   const role = user?.role || 'MEMBER';
   const isAdmin = role === 'ADMIN';
 
@@ -189,6 +201,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUser,
         refreshProfile,
         redeemLicenseKey,
+        forgotPassword,
+        resetPassword,
       }}
     >
       {children}

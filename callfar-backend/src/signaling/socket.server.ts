@@ -84,6 +84,51 @@ export function setupSocketServer(httpServer: HttpServer, corsOrigin: string) {
     // Broadcast online status to contacts
     socket.broadcast.emit('presence:update', { userId, isOnline: true });
 
+    // 📲 TELECOM POWER-ON CATCHUP:
+    // Check for missed calls that arrived while the user's phone was switched off or offline
+    try {
+      const missedCalls = await prisma.notification.findMany({
+        where: {
+          userId,
+          type: 'MISSED_CALL',
+          isRead: false,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      });
+
+      if (missedCalls.length > 0) {
+        console.log(`[CallFar Telecom] Delivering ${missedCalls.length} missed call alert(s) to ${username} after phone connected`);
+        socket.emit('call:missed_alerts', {
+          count: missedCalls.length,
+          alerts: missedCalls,
+        });
+      }
+    } catch (e) {
+      console.warn('[CallFar Telecom] Error delivering missed calls on connect:', e);
+    }
+
+    /**
+     * Acknowledge / dismiss missed call notifications
+     */
+    socket.on('call:acknowledge_missed', async (data?: { notificationIds?: string[] }) => {
+      try {
+        if (data?.notificationIds && data.notificationIds.length > 0) {
+          await prisma.notification.updateMany({
+            where: { id: { in: data.notificationIds }, userId },
+            data: { isRead: true },
+          });
+        } else {
+          await prisma.notification.updateMany({
+            where: { userId, type: 'MISSED_CALL', isRead: false },
+            data: { isRead: true },
+          });
+        }
+      } catch (e) {
+        console.warn('[CallFar Telecom] Error acknowledging missed calls:', e);
+      }
+    });
+
     // ==========================================
     // 1. WEBRTC CALL SIGNALING EVENTS
     // ==========================================
@@ -132,6 +177,67 @@ export function setupSocketServer(httpServer: HttpServer, corsOrigin: string) {
               answerSdp: offerSdp || null,
             });
           }, 1800);
+          return;
+        }
+
+        // 🔎 TELECOM SWITCHED-OFF / OFFLINE CHECK
+        // Check if receiver currently has an active socket connected to the network
+        const receiverSockets = await io.in(`user:${receiverId}`).fetchSockets();
+        const isReceiverOnline = receiverSockets.length > 0;
+
+        if (!isReceiverOnline) {
+          // Receiver's phone is switched off or disconnected from network
+          console.log(`[CallFar Telecom] Receiver ${receiverId} is SWITCHED OFF or OFFLINE.`);
+
+          const missedCall = await CallService.initiateCall(
+            userId,
+            receiverId,
+            callType === 'VIDEO' ? CallType.VIDEO : CallType.VOICE
+          );
+          await CallService.endCall(missedCall.id, CallStatus.MISSED);
+
+          const receiverUser = await prisma.user.findUnique({
+            where: { id: receiverId },
+            select: { username: true, profile: { select: { displayName: true } } },
+          });
+          const receiverDisplayName = receiverUser?.profile?.displayName || receiverUser?.username || 'The contact';
+
+          const callerUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true, profile: { select: { displayName: true, avatarUrl: true } } },
+          });
+          const callerDisplayName = callerUser?.profile?.displayName || callerUser?.username || 'CallFar User';
+
+          // Persist Missed Call in Notifications table so when friend powers on their phone, it is delivered
+          try {
+            await prisma.notification.create({
+              data: {
+                userId: receiverId,
+                type: 'MISSED_CALL',
+                title: '📞 Missed Call',
+                body: `${callerDisplayName} called you while your phone was switched off or offline.`,
+                data: {
+                  callId: missedCall.id,
+                  callerId: userId,
+                  callerName: callerDisplayName,
+                  callerAvatar: callerUser?.profile?.avatarUrl,
+                  callType,
+                  calledAt: new Date().toISOString(),
+                },
+              },
+            });
+          } catch (e) {
+            console.warn('[CallFar Telecom] Could not persist offline missed call notification:', e);
+          }
+
+          // Inform caller immediately that receiver's phone is switched off
+          socket.emit('call:unavailable', {
+            callId: missedCall.id,
+            receiverId,
+            receiverName: receiverDisplayName,
+            reason: 'SWITCHED_OFF',
+            message: `${receiverDisplayName}'s phone is currently switched off or unreachable on the network. A missed call alert has been sent.`,
+          });
           return;
         }
 
@@ -264,6 +370,28 @@ export function setupSocketServer(httpServer: HttpServer, corsOrigin: string) {
         });
 
         if (isMissed) {
+          // Persist in notifications table
+          try {
+            await prisma.notification.create({
+              data: {
+                userId: peerId,
+                type: 'MISSED_CALL',
+                title: '📞 Missed Call',
+                body: `${caller?.profile?.displayName || caller?.username || 'CallFar Contact'} called you.`,
+                data: {
+                  callId,
+                  callerId: userId,
+                  callerName: caller?.profile?.displayName || caller?.username,
+                  callerAvatar: caller?.profile?.avatarUrl,
+                  callType: existingCall.callType || 'VOICE',
+                  calledAt: new Date().toISOString(),
+                },
+              },
+            });
+          } catch (e) {
+            console.warn('[CallFar Telecom] Could not persist missed call notification:', e);
+          }
+
           // Emit explicit missed call notification to receiver
           io.to(`user:${peerId}`).emit('call:missed', {
             callId,

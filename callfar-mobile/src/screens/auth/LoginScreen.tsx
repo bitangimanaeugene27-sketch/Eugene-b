@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,19 @@ import { ServerStatusBar } from '../../components/common/ServerStatusBar';
 
 type LoginMode = 'member' | 'admin';
 
-export const LoginScreen = ({ navigation }: any) => {
+export const LoginScreen = ({ navigation, route }: any) => {
   const { login } = useAuth();
   const [mode, setMode] = useState<LoginMode>('member');
-  const [identifier, setIdentifier] = useState('');
+  const [identifier, setIdentifier] = useState(route?.params?.prefillIdentifier || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [quickLoading, setQuickLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (route?.params?.prefillIdentifier) {
+      setIdentifier(route.params.prefillIdentifier);
+    }
+  }, [route?.params?.prefillIdentifier]);
 
   const isAdminMode = mode === 'admin';
 
@@ -199,6 +205,21 @@ export const LoginScreen = ({ navigation }: any) => {
             value={password}
             onChangeText={setPassword}
             isPassword
+            rightLabelAction={
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate('ForgotPassword', {
+                    initialEmail: identifier.includes('@') ? identifier.trim() : '',
+                  })
+                }
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.forgotPasswordText, isAdminMode && styles.forgotPasswordTextAdmin]}>
+                  Forgot Password?
+                </Text>
+              </TouchableOpacity>
+            }
           />
 
           <Button
@@ -215,6 +236,24 @@ export const LoginScreen = ({ navigation }: any) => {
             <TouchableOpacity onPress={() => navigation.navigate('Register', { defaultRole: isAdminMode ? 'ADMIN' : 'MEMBER' })}>
               <Text style={[styles.linkText, isAdminMode && styles.linkTextAdmin]}>
                 {isAdminMode ? 'Register as Admin' : 'Register here'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.troubleRow}>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('ForgotPassword', {
+                  initialEmail: identifier.includes('@') ? identifier.trim() : '',
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Text style={styles.troubleText}>
+                🔑 Trouble signing in?{' '}
+                <Text style={[styles.troubleLink, isAdminMode && styles.troubleLinkAdmin]}>
+                  Reset Password
+                </Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -475,8 +514,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  forgotPasswordRow: {
+    alignItems: 'flex-end',
+    marginTop: -4,
+    marginBottom: 16,
+    paddingHorizontal: 2,
+  },
+  forgotPasswordText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  forgotPasswordTextAdmin: {
+    color: '#F59E0B',
+  },
+
   submitBtn: {
-    marginTop: 10,
+    marginTop: 6,
     backgroundColor: '#2563EB',
   },
   submitBtnAdmin: {
@@ -500,6 +554,22 @@ const styles = StyleSheet.create({
   },
   linkTextAdmin: {
     color: '#FBBF24',
+  },
+  troubleRow: {
+    alignItems: 'center',
+    marginTop: 14,
+    paddingVertical: 4,
+  },
+  troubleText: {
+    color: '#64748B',
+    fontSize: 12.5,
+  },
+  troubleLink: {
+    color: '#38BDF8',
+    fontWeight: '700',
+  },
+  troubleLinkAdmin: {
+    color: '#F59E0B',
   },
 
   securityFooter: {

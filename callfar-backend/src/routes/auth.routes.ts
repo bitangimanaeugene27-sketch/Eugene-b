@@ -2,7 +2,14 @@ import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller.js';
 import { validateBody } from '../middlewares/validate.middleware.js';
 import { requireAuth } from '../middlewares/auth.middleware.js';
-import { registerSchema, loginSchema, refreshTokenSchema, elevateAdminSchema } from '../validations/auth.validation.js';
+import {
+  registerSchema,
+  loginSchema,
+  refreshTokenSchema,
+  elevateAdminSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from '../validations/auth.validation.js';
 
 const router = Router();
 
@@ -12,5 +19,11 @@ router.post('/refresh', validateBody(refreshTokenSchema), AuthController.refresh
 router.post('/logout', AuthController.logout);
 router.get('/me', requireAuth, AuthController.me);
 router.post('/elevate-admin', requireAuth, validateBody(elevateAdminSchema), AuthController.elevateToAdmin);
+
+// Password recovery & reset endpoints
+router.post('/forgot-password', validateBody(forgotPasswordSchema), AuthController.forgotPassword);
+router.get('/verify-reset-token', AuthController.verifyResetToken);
+router.post('/reset-password', validateBody(resetPasswordSchema), AuthController.resetPassword);
+router.get('/reset-password-page', AuthController.renderResetPasswordPage);
 
 export default router;

@@ -6,12 +6,14 @@ interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
   isPassword?: boolean;
+  rightLabelAction?: React.ReactNode;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
   error,
   isPassword = false,
+  rightLabelAction,
   style,
   ...props
 }) => {
@@ -20,7 +22,12 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>{label}</Text>
+          {rightLabelAction}
+        </View>
+      )}
       <View
         style={[
           styles.inputWrapper,
@@ -55,11 +62,16 @@ const styles = StyleSheet.create({
     marginBottom: THEME.spacing.md,
     width: '100%',
   },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   label: {
     fontSize: 13,
     fontWeight: '500',
     color: THEME.colors.textSecondary,
-    marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
