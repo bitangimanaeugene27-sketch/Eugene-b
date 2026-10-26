@@ -248,7 +248,7 @@ export class AuthController {
       background: #0B1120;
       border: 1px solid #1E293B;
       border-radius: 12px;
-      padding: 14px 16px;
+      padding: 14px 44px 14px 16px;
       color: #FFFFFF;
       font-size: 15px;
       outline: none;
@@ -257,6 +257,23 @@ export class AuthController {
     input:focus {
       border-color: #38BDF8;
       box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+    .toggle-pwd {
+      position: absolute;
+      right: 12px;
+      background: transparent;
+      border: none;
+      color: #64748B;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s ease;
+    }
+    .toggle-pwd:hover {
+      color: #38BDF8;
     }
     .requirements {
       background: rgba(11, 17, 32, 0.7);
@@ -374,6 +391,7 @@ export class AuthController {
             required
             oninput="validateRules()"
           />
+          <button type="button" class="toggle-pwd" onclick="toggleVisibility('newPassword', this)" title="Show/Hide Password">👁️</button>
         </div>
       </div>
 
@@ -387,6 +405,7 @@ export class AuthController {
             required
             oninput="validateRules()"
           />
+          <button type="button" class="toggle-pwd" onclick="toggleVisibility('confirmPassword', this)" title="Show/Hide Password">👁️</button>
         </div>
       </div>
 
@@ -420,6 +439,17 @@ export class AuthController {
 
   <script>
     const token = ${JSON.stringify(rawToken)};
+
+    function toggleVisibility(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
 
     function validateRules() {
       const pwd = document.getElementById('newPassword').value;

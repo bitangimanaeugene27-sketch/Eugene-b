@@ -17,29 +17,34 @@ export class EmailService {
       return this.transporter;
     }
 
-    if (ENV.SMTP_HOST && ENV.SMTP_USER) {
-      if (ENV.SMTP_HOST.toLowerCase().includes('gmail')) {
+    const host = ENV.SMTP_HOST?.trim() || '';
+    const user = ENV.SMTP_USER?.trim() || '';
+    const rawPass = ENV.SMTP_PASS || '';
+    const pass = rawPass.replace(/["'\s]/g, '');
+
+    if (host && user && pass) {
+      if (host.toLowerCase().includes('gmail')) {
         this.transporter = nodemailer.createTransport({
           service: 'gmail',
           auth: {
-            user: ENV.SMTP_USER.trim(),
-            pass: ENV.SMTP_PASS.replace(/\s+/g, ''), // Strip spaces if user copied 16-character app password
+            user,
+            pass,
           },
         });
-        console.log(`[EmailService] Using direct Gmail SMTP service with account: ${ENV.SMTP_USER.trim()}`);
+        console.log(`[EmailService] Initialized Gmail SMTP transport for user: ${user}`);
       } else {
         this.transporter = nodemailer.createTransport({
-          host: ENV.SMTP_HOST,
-          port: ENV.SMTP_PORT,
+          host,
+          port: ENV.SMTP_PORT || 587,
           secure: ENV.SMTP_SECURE || ENV.SMTP_PORT === 465,
-          connectionTimeout: 8000,
-          greetingTimeout: 8000,
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
           auth: {
-            user: ENV.SMTP_USER.trim(),
-            pass: ENV.SMTP_PASS,
+            user,
+            pass,
           },
         });
-        console.log(`[EmailService] Using configured SMTP transport at ${ENV.SMTP_HOST}:${ENV.SMTP_PORT}`);
+        console.log(`[EmailService] Initialized custom SMTP transport at ${host}:${ENV.SMTP_PORT}`);
       }
     } else {
       // In development or when SMTP not provided, use an Ethereal test account or local stream fallback
@@ -76,211 +81,206 @@ export class EmailService {
   static async sendPasswordResetEmail(options: SendPasswordResetOptions): Promise<{ previewUrl?: string | false; success: boolean }> {
     const { to, username, displayName, resetUrl, resetCode } = options;
     const recipientName = displayName || username || 'CallFar Member';
+    const formattedCode = resetCode.split('').join(' ');
 
     const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="supported-color-schemes" content="dark light" />
   <title>Reset Your CallFar Password</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #0B0F19;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      color: #E2E8F0;
-      -webkit-font-smoothing: antialiased;
-    }
-    .wrapper {
-      width: 100%;
-      background-color: #0B0F19;
-      padding: 40px 16px;
-      box-sizing: border-box;
-    }
-    .card {
-      max-width: 540px;
-      margin: 0 auto;
-      background: linear-gradient(180deg, #131D31 0%, #0F172A 100%);
-      border: 1px solid #1E293B;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-    }
-    .header {
-      background: linear-gradient(135deg, #1E3A8A 0%, #0284C7 50%, #2563EB 100%);
-      padding: 36px 30px;
-      text-align: center;
-    }
-    .brand-title {
-      font-size: 28px;
-      font-weight: 800;
-      color: #FFFFFF;
-      letter-spacing: 1px;
-      margin: 0 0 6px 0;
-    }
-    .brand-subtitle {
-      font-size: 13px;
-      color: #BAE6FD;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-      margin: 0;
-    }
-    .content {
-      padding: 36px 32px;
-    }
-    h2 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #F8FAFC;
-      margin: 0 0 16px 0;
-    }
-    p {
-      font-size: 15px;
-      line-height: 1.6;
-      color: #94A3B8;
-      margin: 0 0 20px 0;
-    }
-    .btn-container {
-      text-align: center;
-      margin: 30px 0;
-    }
-    .btn {
-      display: inline-block;
-      background: linear-gradient(135deg, #2563EB 0%, #0284C7 100%);
-      color: #FFFFFF !important;
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 16px;
-      padding: 15px 36px;
-      border-radius: 12px;
-      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
-      letter-spacing: 0.3px;
-    }
-    .code-box {
-      background-color: #070B14;
-      border: 1px dashed #3B82F6;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: center;
-      margin: 24px 0;
-    }
-    .code-label {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #60A5FA;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .code-value {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 32px;
-      font-weight: 800;
-      letter-spacing: 6px;
-      color: #38BDF8;
-    }
-    .divider {
-      height: 1px;
-      background-color: #1E293B;
-      margin: 28px 0;
-    }
-    .security-note {
-      font-size: 13px;
-      color: #64748B;
-      background-color: rgba(30, 41, 59, 0.4);
-      padding: 14px 18px;
-      border-radius: 8px;
-      line-height: 1.5;
-    }
-    .footer {
-      padding: 20px 32px 30px;
-      text-align: center;
-      font-size: 12px;
-      color: #475569;
-      border-top: 1px solid #1E293B;
-    }
-    .footer a {
-      color: #3B82F6;
-      text-decoration: none;
-    }
-  </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="card">
-      <div class="header">
-        <h1 class="brand-title">CallFar</h1>
-        <p class="brand-subtitle">SECURE COMMUNICATION PLATFORM</p>
-      </div>
-      <div class="content">
-        <h2>Password Reset Request</h2>
-        <p>Hello <strong>${recipientName}</strong>,</p>
-        <p>We received a request to reset your password for your CallFar account (<strong>@${username}</strong>). Click the secure button below to set a new password:</p>
+<body style="margin: 0; padding: 0; background-color: #070B14; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; color: #E2E8F0;">
+  
+  <!-- Outer Table Wrapper -->
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #070B14; min-height: 100vh; padding: 32px 12px;">
+    <tr>
+      <td align="center" valign="top">
         
-        <div class="btn-container">
-          <a href="${resetUrl}" target="_blank" class="btn">Reset My Password &rarr;</a>
-        </div>
+        <!-- Main Card Container (Max Width 580px) -->
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background: #0F172A; border: 1px solid #1E293B; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 45%, #0284C7 100%); padding: 36px 30px; text-align: center; border-bottom: 1px solid rgba(56, 189, 248, 0.2);">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <!-- Icon / Brand Badge -->
+                    <div style="display: inline-block; width: 56px; height: 56px; line-height: 56px; border-radius: 16px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25); text-align: center; font-size: 28px; margin-bottom: 12px; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);">
+                      🛡️
+                    </div>
+                    <h1 style="margin: 0; font-size: 30px; font-weight: 800; color: #FFFFFF; letter-spacing: 0.5px; line-height: 1.2;">
+                      CallFar
+                    </h1>
+                    <p style="margin: 6px 0 0 0; font-size: 11px; font-weight: 700; color: #BAE6FD; text-transform: uppercase; letter-spacing: 1.5px;">
+                      Secure Communication Platform
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-        <p style="text-align: center; font-size: 13px; color: #64748B; margin-bottom: 24px;">
-          Alternatively, if you are resetting directly inside the CallFar mobile app, enter this 6-digit verification code:
-        </p>
+          <!-- Main Content Body -->
+          <tr>
+            <td style="padding: 36px 32px;">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td>
+                    <!-- Heading -->
+                    <h2 style="margin: 0 0 16px 0; font-size: 22px; font-weight: 700; color: #F8FAFC; letter-spacing: -0.3px;">
+                      Password Reset Request
+                    </h2>
 
-        <div class="code-box">
-          <div class="code-label">Mobile App Verification Code</div>
-          <div class="code-value">${resetCode}</div>
-        </div>
+                    <!-- Greeting & Context -->
+                    <p style="margin: 0 0 14px 0; font-size: 15px; line-height: 1.6; color: #CBD5E1;">
+                      Hello <strong style="color: #F8FAFC;">${recipientName}</strong>,
+                    </p>
+                    <p style="margin: 0 0 24px 0; font-size: 14.5px; line-height: 1.6; color: #94A3B8;">
+                      We received a request to reset the password associated with your CallFar account (<span style="color: #38BDF8; font-weight: 600;">@${username}</span>). You can complete this securely using either of the two options below:
+                    </p>
 
-        <div class="divider"></div>
+                    <!-- Option 1: 1-Tap Reset Link Button -->
+                    <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; margin-bottom: 24px; text-align: center;">
+                      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #60A5FA; margin-bottom: 14px;">
+                        Option 1 &bull; 1-Tap Web Password Reset
+                      </div>
+                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
+                        <tr>
+                          <td align="center" style="border-radius: 12px; background: linear-gradient(135deg, #2563EB 0%, #0284C7 100%); box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);">
+                            <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 15px 36px; font-size: 15.5px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; letter-spacing: 0.3px;">
+                              🔐 Reset My Password Now &rarr;
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      <div style="margin-top: 14px; font-size: 12px; color: #64748B;">
+                        Clicking this opens our encrypted password reset page in your browser.
+                      </div>
+                    </div>
 
-        <div class="security-note">
-          🔒 <strong>Security Notice:</strong> This password reset link and verification code are valid for <strong>15 minutes</strong>. If you did not make this request, someone may have mistyped their email. Your account remains completely secure and no action is needed.
-        </div>
-      </div>
-      <div class="footer">
-        &copy; ${new Date().getFullYear()} CallFar Platform. All rights reserved.<br>
-        Ultra High-Definition Voice, Video & Real-Time Messaging.
-      </div>
-    </div>
-  </div>
+                    <!-- Option 2: In-App 6-Digit Code -->
+                    <div style="background: #070B14; border: 1.5px dashed #3B82F6; border-radius: 14px; padding: 20px; margin-bottom: 26px; text-align: center;">
+                      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #93C5FD; margin-bottom: 8px;">
+                        Option 2 &bull; In-App Verification Code
+                      </div>
+                      <p style="margin: 0 0 12px 0; font-size: 13px; color: #94A3B8;">
+                        If you are currently inside the CallFar mobile app, enter this 6-digit code:
+                      </p>
+                      <div style="display: inline-block; background: #0B1222; border: 1px solid #1E3A8A; border-radius: 10px; padding: 10px 24px; font-family: 'SF Mono', Monaco, Menlo, 'Courier New', monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #38BDF8;">
+                        ${formattedCode}
+                      </div>
+                      <div style="margin-top: 10px;">
+                        <span style="display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #FBBF24; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
+                          ⏱️ Code & link expire in 15 minutes
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Direct URL Backup Box -->
+                    <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Button not working? Copy and paste this URL into your browser:
+                    </p>
+                    <div style="background: #0B1120; border: 1px solid #1E293B; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 12px; color: #38BDF8; word-break: break-all; margin-bottom: 26px;">
+                      <a href="${resetUrl}" target="_blank" style="color: #38BDF8; text-decoration: underline;">
+                        ${resetUrl}
+                      </a>
+                    </div>
+
+                    <!-- Security Notice Box -->
+                    <div style="background: rgba(15, 23, 42, 0.6); border-left: 3px solid #3B82F6; border-radius: 0 10px 10px 0; padding: 14px 16px; margin-bottom: 10px;">
+                      <div style="font-size: 13px; font-weight: 700; color: #F1F5F9; margin-bottom: 4px;">
+                        🔒 Important Security Safeguards:
+                      </div>
+                      <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #94A3B8;">
+                        <li>If you did not request this password reset, someone may have entered your email by mistake. Your account is <strong>completely safe</strong>, and no action is required.</li>
+                        <li>Never forward or share this link or verification code with anyone. CallFar staff will never ask for your password.</li>
+                      </ul>
+                    </div>
+
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background: #0B101E; border-top: 1px solid #1E293B; padding: 24px 30px; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #64748B;">
+                &copy; ${new Date().getFullYear()} CallFar Platform. All rights reserved.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #475569; line-height: 1.5;">
+                Protected by 256-Bit End-to-End Encryption &bull; Ultra HD Voice, Video & Messaging<br />
+                Sent to <span style="color: #64748B;">${to}</span> as an essential security notification.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>
     `;
 
     const plainText = `
-CallFar Password Reset
-======================
+CallFar Security Notification - Password Reset
+==================================================
 
 Hello ${recipientName},
 
-We received a request to reset your CallFar account password (@${username}).
+We received a request to reset the password for your CallFar account (@${username}).
 
-To reset your password, visit the following secure link:
+OPTION 1: 1-Tap Password Reset Link
+Visit this secure link in your browser to set a new password:
 ${resetUrl}
 
-Or, if you are using the CallFar mobile app, enter your 6-digit verification code:
+OPTION 2: In-App Verification Code
+If you are resetting directly in the CallFar mobile app, enter:
 ${resetCode}
 
-This code and link will expire in 15 minutes.
-If you did not request this, you can safely ignore this email.
+SECURITY NOTICE:
+* This link and code expire in 15 minutes.
+* If you did not make this request, you can safely ignore this email.
+* Your account remains secure and no changes have been made.
+
+--------------------------------------------------
+CallFar Secure Communication Platform
+Ultra High-Definition Voice, Video & Encrypted Messaging
 `;
 
     try {
       const transporter = await this.getTransporter();
-      const info = await transporter.sendMail({
-        from: ENV.EMAIL_FROM,
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: ENV.EMAIL_FROM || `CallFar Security <${ENV.SMTP_USER}>`,
         to,
         subject: '🔒 Reset Your CallFar Password',
         text: plainText,
         html: htmlContent,
-      });
+        priority: 'high',
+        headers: {
+          'X-Priority': '1',
+          'X-MSMail-Priority': 'High',
+          'Importance': 'high',
+          'X-Mailer': 'CallFar Security Mailer v2.0',
+        },
+      };
+
+      const info = await transporter.sendMail(mailOptions);
 
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
-        console.log(`[EmailService] ✉️ Password reset email sent! Test preview URL: ${previewUrl}`);
+        console.log(`[EmailService] ✉️ Password reset email generated (preview): ${previewUrl}`);
       } else {
-        console.log(`[EmailService] ✉️ Password reset email sent to ${to} (MessageId: ${info.messageId})`);
+        console.log(`[EmailService] ✉️ Password reset email successfully delivered to ${to} (MessageId: ${info.messageId})`);
       }
 
       return {
@@ -288,8 +288,7 @@ If you did not request this, you can safely ignore this email.
         previewUrl,
       };
     } catch (err: any) {
-      console.error(`[EmailService] Failed to send email to ${to}:`, err.message || err);
-      // Don't crash auth flow; return failure flag
+      console.error(`[EmailService] ❌ Failed to send email to ${to}:`, err.message || err);
       return {
         success: false,
       };
