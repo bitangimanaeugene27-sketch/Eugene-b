@@ -484,10 +484,14 @@ export class AuthService {
       },
     });
 
-    // Resolve optimal reset URL (dynamic request host, cloud domain, or configured APP_URL)
-    const effectiveBaseUrl = (clientBaseUrl && !clientBaseUrl.includes('localhost'))
-      ? clientBaseUrl
-      : (ENV.APP_URL || clientBaseUrl || 'http://172.23.224.248:5000');
+    // For email deliverability and global accessibility, ALWAYS use the official public HTTPS domain
+    // so Gmail and mobile browsers accept the link worldwide without local IP or cleartext HTTP blocks
+    const publicCloudDomain = 'https://callfar-backend.onrender.com';
+    const effectiveBaseUrl = (ENV.APP_URL && ENV.APP_URL.startsWith('https://'))
+      ? ENV.APP_URL
+      : (clientBaseUrl && clientBaseUrl.startsWith('https://'))
+        ? clientBaseUrl
+        : publicCloudDomain;
 
     const resetUrl = `${effectiveBaseUrl}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
 

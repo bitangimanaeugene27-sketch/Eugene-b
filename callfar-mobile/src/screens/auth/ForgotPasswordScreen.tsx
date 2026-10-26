@@ -118,15 +118,21 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   };
 
   const handleResetPassword = async () => {
-    const trimmedCode = verificationCode.trim();
+    let effectiveTokenOrCode = verificationCode.trim();
 
-    if (!trimmedCode) {
-      Alert.alert('Verification Code Required', 'Please enter the 6-digit verification code.');
+    // If user pasted a full reset link (e.g. https://.../reset-password-page?token=abc...)
+    const tokenMatch = effectiveTokenOrCode.match(/[?&]token=([a-f0-9]+)/i);
+    if (tokenMatch) {
+      effectiveTokenOrCode = tokenMatch[1];
+    }
+
+    if (!effectiveTokenOrCode) {
+      Alert.alert('Verification Code or Link Required', 'Please enter your 6-digit verification code or paste your reset link.');
       return;
     }
 
-    if (trimmedCode.length < 6) {
-      Alert.alert('Invalid Code', 'The verification code must be at least 6 characters.');
+    if (effectiveTokenOrCode.length < 6) {
+      Alert.alert('Invalid Code', 'The verification code must be at least 6 digits or a valid link/token.');
       return;
     }
 
@@ -140,7 +146,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
 
     try {
       setLoading(true);
-      await resetPassword(trimmedCode, newPassword);
+      await resetPassword(effectiveTokenOrCode, newPassword);
       setStep('success');
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Failed to reset password. The code or link may have expired.';
@@ -358,17 +364,20 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
               </View>
             ) : null}
 
-            <Text style={styles.inputLabel}>6-Digit Verification Code *</Text>
+            <Text style={styles.inputLabel}>6-Digit Verification Code or Reset Link *</Text>
             <View style={styles.codeInputWrapper}>
               <TextInput
-                style={styles.codeInput}
-                placeholder="123456"
+                style={[
+                  styles.codeInput,
+                  verificationCode.length > 6 && { fontSize: 14, letterSpacing: 0.5 },
+                ]}
+                placeholder="123456 or paste reset link"
                 placeholderTextColor="#475569"
                 value={verificationCode}
                 onChangeText={setVerificationCode}
-                keyboardType="numeric"
-                maxLength={32}
+                keyboardType="default"
                 autoCapitalize="none"
+                autoCorrect={false}
               />
             </View>
 
