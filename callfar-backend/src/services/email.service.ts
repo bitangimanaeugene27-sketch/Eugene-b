@@ -281,6 +281,59 @@ CallFar Secure Communication Platform
 Ultra High-Definition Voice, Video & Encrypted Messaging
 `;
 
+    // 1. High-speed HTTPS API dispatch (Port 443 - completely bypasses cloud SMTP port blocks like Render free tier)
+    if (ENV.RESEND_API_KEY) {
+      try {
+        const resendResp = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${ENV.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: ENV.EMAIL_FROM || 'CallFar Security <onboarding@resend.dev>',
+            to: [to],
+            subject: '🔐 Reset Your CallFar Password',
+            html: htmlContent,
+            text: plainText,
+          }),
+        });
+        if (resendResp.ok) {
+          const data: any = await resendResp.json();
+          console.log(`[EmailService] ✉️ Password reset email dispatched via Resend HTTPS API in <1s (Id: ${data?.id})`);
+          return { success: true };
+        }
+      } catch (resendErr: any) {
+        console.warn('[EmailService] Resend API error, falling back to SMTP:', resendErr?.message || resendErr);
+      }
+    }
+
+    if (ENV.BREVO_API_KEY) {
+      try {
+        const brevoResp = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': ENV.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: { name: 'CallFar Security', email: ENV.SMTP_USER || 'security@callfar.app' },
+            to: [{ email: to, name: recipientName }],
+            subject: '🔐 Reset Your CallFar Password',
+            htmlContent,
+            textContent: plainText,
+          }),
+        });
+        if (brevoResp.ok) {
+          const data: any = await brevoResp.json();
+          console.log(`[EmailService] ✉️ Password reset email dispatched via Brevo HTTPS API in <1s (MessageId: ${data?.messageId})`);
+          return { success: true };
+        }
+      } catch (brevoErr: any) {
+        console.warn('[EmailService] Brevo API error, falling back to SMTP:', brevoErr?.message || brevoErr);
+      }
+    }
+
     try {
       const transporter = await this.getTransporter();
       const mailOptions: SendMailOptions = {

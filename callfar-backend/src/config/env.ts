@@ -37,4 +37,8 @@ export const ENV = {
   SMTP_SECURE: process.env.SMTP_SECURE === 'true',
   EMAIL_FROM: process.env.EMAIL_FROM || 'CallFar Security <bitangimanaeugene27@gmail.com>',
   APP_URL: process.env.APP_URL || process.env.SERVER_URL || 'https://callfar-backend.onrender.com',
+
+  // Optional HTTPS Email APIs (over Port 443 - bypasses Render free tier SMTP blocks)
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
 };
