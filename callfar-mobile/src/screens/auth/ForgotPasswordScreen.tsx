@@ -25,9 +25,14 @@ const EMAIL_REGEX = /^[a-zA-Z0-9_%+-]+(?:\.[a-zA-Z0-9_%+-]+)*@(?:[a-zA-Z0-9](?:[
 export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const { forgotPassword, resetPassword } = useAuth();
 
-  const [step, setStep] = useState<'request' | 'email_sent' | 'success'>('request');
-  const [emailInput, setEmailInput] = useState(route?.params?.initialEmail || '');
-  const [targetAccountEmail, setTargetAccountEmail] = useState('');
+  const isAutoSent = Boolean(route?.params?.autoSent);
+  const initialEmail = route?.params?.initialEmail || '';
+
+  const [step, setStep] = useState<'request' | 'email_sent' | 'success'>(
+    isAutoSent ? 'email_sent' : 'request'
+  );
+  const [emailInput, setEmailInput] = useState(initialEmail);
+  const [targetAccountEmail, setTargetAccountEmail] = useState(initialEmail);
   const [verificationCode, setVerificationCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

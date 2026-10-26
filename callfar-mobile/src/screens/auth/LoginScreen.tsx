@@ -20,7 +20,7 @@ import { ServerStatusBar } from '../../components/common/ServerStatusBar';
 type LoginMode = 'member' | 'admin';
 
 export const LoginScreen = ({ navigation, route }: any) => {
-  const { login } = useAuth();
+  const { login, forgotPassword } = useAuth();
   const [mode, setMode] = useState<LoginMode>('member');
   const [identifier, setIdentifier] = useState(route?.params?.prefillIdentifier || '');
   const [password, setPassword] = useState('');
@@ -70,6 +70,44 @@ export const LoginScreen = ({ navigation, route }: any) => {
       setIdentifier('alice');
       setPassword('Password123!');
       handleLogin('alice', 'Password123!');
+    }
+  };
+
+  const handleForgotPasswordClick = () => {
+    const raw = (identifier || '').trim();
+    if (raw.includes('@') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) {
+      Alert.alert(
+        'Reset Password ✉️',
+        `Send a password reset link directly to ${raw}?`,
+        [
+          {
+            text: 'Send Link Now',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                await forgotPassword(raw.toLowerCase());
+                navigation.navigate('ForgotPassword', {
+                  initialEmail: raw,
+                  autoSent: true,
+                });
+              } catch (err: any) {
+                const msg = err.response?.data?.message || err.message || 'Could not send reset link.';
+                Alert.alert('Reset Notice', msg);
+                navigation.navigate('ForgotPassword', { initialEmail: raw });
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+          {
+            text: 'Open Recovery Screen',
+            style: 'cancel',
+            onPress: () => navigation.navigate('ForgotPassword', { initialEmail: raw }),
+          },
+        ]
+      );
+    } else {
+      navigation.navigate('ForgotPassword', { initialEmail: raw });
     }
   };
 
@@ -207,11 +245,7 @@ export const LoginScreen = ({ navigation, route }: any) => {
             isPassword
             rightLabelAction={
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('ForgotPassword', {
-                    initialEmail: identifier.includes('@') ? identifier.trim() : '',
-                  })
-                }
+                onPress={handleForgotPasswordClick}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
               >
@@ -242,11 +276,7 @@ export const LoginScreen = ({ navigation, route }: any) => {
 
           <View style={styles.troubleRow}>
             <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('ForgotPassword', {
-                  initialEmail: identifier.includes('@') ? identifier.trim() : '',
-                })
-              }
+              onPress={handleForgotPasswordClick}
               activeOpacity={0.7}
             >
               <Text style={styles.troubleText}>
