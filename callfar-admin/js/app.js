@@ -2,7 +2,7 @@
  * CallFar Admin Hub — Master Controller & Interactive Logic
  */
 
-import { adminApi } from './api.js';
+import { adminApi, API_CONFIG } from './api.js';
 
 class CallFarAdminApp {
   constructor() {
@@ -21,16 +21,25 @@ class CallFarAdminApp {
   }
 
   async init() {
+    this.updateServerBadge();
+    this.renderProfile();
     this.bindNavigation();
     this.bindSearchAndFilters();
     this.bindModals();
 
-    // Initial data load
-    await this.refreshAllData();
+    // If not authenticated as administrator, show login modal
+    if (!adminApi.isAuthenticated()) {
+      this.showLoginModal();
+    } else {
+      // Initial live data load
+      await this.refreshAllData();
+    }
 
     // Start auto-refresh cycle (every 15s)
     this.autoRefreshInterval = setInterval(() => {
-      this.refreshCurrentViewSilently();
+      if (adminApi.isAuthenticated()) {
+        this.refreshCurrentViewSilently();
+      }
     }, 15000);
   }
 
@@ -337,6 +346,9 @@ class CallFarAdminApp {
                 </button>
                 <button class="btn-icon" title="Toggle Role (Admin/Member)" onclick="window.adminApp.toggleUserRole('${u.id}', '${u.role === 'ADMIN' ? 'MEMBER' : 'ADMIN'}')">
                   👑
+                </button>
+                <button class="btn-icon" title="Manage License & Entitlements" onclick="window.adminApp.openManageLicenseModal('${u.id}', '${this.escape(u.username)}', '${u.license?.tier || 'FREE'}', ${u.license?.maxCallDurationMinutes ?? -1})">
+                  💎
                 </button>
                 <button class="btn-icon" title="Reset Password" onclick="window.adminApp.openResetPasswordModal('${u.id}', '${this.escape(u.username)}')">
                   🔑
@@ -1224,6 +1236,203 @@ class CallFarAdminApp {
     link.click();
     document.body.removeChild(link);
     this.showToast('Platform summary downloaded (JSON).', 'success');
+  }
+
+  /* ========================================================================
+     Executive Authentication, Profile & Server Management
+     ======================================================================== */
+  onAuthChanged(user) {
+    this.renderProfile();
+    if (user) {
+      this.refreshAllData();
+    }
+  }
+
+  renderProfile() {
+    const user = adminApi.user;
+    const displayName = user?.profile?.displayName || user?.username || 'Executive Admin';
+    const username = user?.username || 'admin';
+    const role = user?.role === 'ADMIN' ? 'MASTER ADMINISTRATOR' : 'PLATFORM MEMBER';
+    const initial = (displayName || username || 'A')[0].toUpperCase();
+
+    const avatarEl = document.getElementById('sidebar-avatar');
+    const nameEl = document.getElementById('sidebar-admin-name');
+    const roleEl = document.getElementById('sidebar-admin-role');
+    const headerDisplay = document.getElementById('header-admin-display');
+
+    if (avatarEl) avatarEl.textContent = initial;
+    if (nameEl) nameEl.textContent = displayName;
+    if (roleEl) roleEl.textContent = role;
+    if (headerDisplay) headerDisplay.textContent = username;
+  }
+
+  updateServerBadge() {
+    const env = API_CONFIG.getTargetEnvironment();
+    const isCloud = env === 'cloud';
+
+    const iconEl = document.getElementById('header-server-icon');
+    const labelEl = document.getElementById('header-server-label');
+    const pillLocal = document.getElementById('pill-server-local');
+    const pillCloud = document.getElementById('pill-server-cloud');
+
+    if (iconEl) iconEl.textContent = isCloud ? '🌐' : '🟢';
+    if (labelEl) labelEl.textContent = isCloud ? 'Render Cloud' : 'Local (5000)';
+
+    if (pillLocal) {
+      if (!isCloud) pillLocal.classList.add('active');
+      else pillLocal.classList.remove('active');
+    }
+    if (pillCloud) {
+      if (isCloud) pillCloud.classList.add('active');
+      else pillCloud.classList.remove('active');
+    }
+  }
+
+  cycleServerTarget() {
+    const current = API_CONFIG.getTargetEnvironment();
+    const target = current === 'local' ? 'cloud' : 'local';
+    this.selectServerTarget(target);
+  }
+
+  async selectServerTarget(target) {
+    API_CONFIG.setTargetEnvironment(target);
+    this.updateServerBadge();
+    const label = target === 'cloud' ? 'Render Cloud (callfar-backend.onrender.com)' : 'Localhost Backend (localhost:5000)';
+    this.showToast(`Switched API Target to ${label}`, 'info');
+    await this.refreshAllData(true);
+  }
+
+  fillAdminCredentials(identifier) {
+    const input = document.getElementById('login-identifier');
+    const pwdInput = document.getElementById('login-password');
+    if (input) {
+      input.value = identifier;
+      if (pwdInput) pwdInput.focus();
+    }
+  }
+
+  togglePasswordVisibility(inputId, btnId) {
+    const input = document.getElementById(inputId);
+    const btn = document.getElementById(btnId);
+    if (!input) return;
+    const isPwd = input.type === 'password';
+    input.type = isPwd ? 'text' : 'password';
+    if (btn) btn.textContent = isPwd ? '🙈' : '👁️';
+  }
+
+  showLoginModal(optionalMsg) {
+    const banner = document.getElementById('login-error-banner');
+    const textEl = document.getElementById('login-error-text');
+    if (optionalMsg && banner && textEl) {
+      textEl.textContent = optionalMsg;
+      banner.classList.add('active');
+    } else if (banner) {
+      banner.classList.remove('active');
+    }
+    this.updateServerBadge();
+    this.openModal('modal-admin-login');
+  }
+
+  async submitAdminLogin() {
+    const identifier = document.getElementById('login-identifier')?.value.trim();
+    const password = document.getElementById('login-password')?.value;
+    const passcode = document.getElementById('login-passcode')?.value.trim();
+    const submitBtn = document.getElementById('btn-submit-login');
+    const banner = document.getElementById('login-error-banner');
+    const textEl = document.getElementById('login-error-text');
+
+    if (!identifier || !password) {
+      if (banner && textEl) {
+        textEl.textContent = 'Please enter both your identifier and password.';
+        banner.classList.add('active');
+      }
+      return;
+    }
+
+    try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>⏳</span> <span>Authenticating Security Credentials...</span>';
+      }
+      if (banner) banner.classList.remove('active');
+
+      const res = await adminApi.login(identifier, password, passcode);
+
+      if (res.success) {
+        this.closeModal('modal-admin-login');
+        const username = res.user?.username || identifier;
+        this.showToast(`Authenticated successfully! Welcome to Executive Hub, @${username}.`, 'success');
+        this.renderProfile();
+        await this.refreshAllData(true);
+      }
+    } catch (err) {
+      if (banner && textEl) {
+        textEl.textContent = err.message || 'Authentication failed. Please verify credentials.';
+        banner.classList.add('active');
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>🔓</span> <span>Sign In &amp; Unlock Console</span>';
+      }
+    }
+  }
+
+  handleSignOut() {
+    if (confirm('Sign out from the CallFar Executive Admin Console?')) {
+      adminApi.clearSession();
+      this.renderProfile();
+      this.showToast('You have signed out from the administration console.', 'info');
+      this.showLoginModal('Enter administrator credentials to sign back in.');
+    }
+  }
+
+  /* ========================================================================
+     User License Management Modal
+     ======================================================================== */
+  openManageLicenseModal(userId, username, currentTier, maxDuration) {
+    document.getElementById('license-user-id').value = userId;
+    document.getElementById('license-user-name').textContent = `@${username}`;
+    document.getElementById('license-select-tier').value = currentTier || 'FREE';
+    document.getElementById('license-call-limit').value = maxDuration ?? -1;
+    this.openModal('modal-manage-license');
+  }
+
+  async submitManageLicense() {
+    const userId = document.getElementById('license-user-id')?.value;
+    const tier = document.getElementById('license-select-tier')?.value;
+    const maxCallDurationMinutes = Number(document.getElementById('license-call-limit')?.value) || -1;
+    const expirationDays = Number(document.getElementById('license-expiration-select')?.value);
+    const canRecordCalls = document.getElementById('license-can-record')?.checked;
+    const canScreenShare = document.getElementById('license-can-screenshare')?.checked;
+    const priorityTurn = document.getElementById('license-priority-turn')?.checked;
+
+    let expiresAt = null;
+    if (expirationDays > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + expirationDays);
+      expiresAt = d.toISOString();
+    }
+
+    try {
+      const res = await adminApi.updateUserLicense(userId, {
+        tier,
+        maxCallDurationMinutes,
+        expiresAt,
+        canRecordCalls,
+        canScreenShare,
+        priorityTurn,
+      });
+
+      if (res.success) {
+        this.showToast(res.message || 'User license & entitlements updated.', 'success');
+        this.closeModal('modal-manage-license');
+        await this.loadUsers();
+        await this.loadOverview();
+      }
+    } catch (err) {
+      this.showToast(err.message, 'error');
+    }
   }
 
   escape(str) {

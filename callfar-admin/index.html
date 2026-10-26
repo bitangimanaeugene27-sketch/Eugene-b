@@ -112,13 +112,16 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="admin-profile-card">
+        <div class="admin-profile-card" id="sidebar-profile-card" title="Click to view details or switch account" onclick="window.adminApp.openModal('modal-admin-login')">
           <div class="admin-avatar" id="sidebar-avatar">A</div>
           <div class="admin-profile-info">
-            <div class="admin-name" id="sidebar-admin-name">alice</div>
-            <div class="admin-role">MASTER ADMINISTRATOR</div>
+            <div class="admin-name" id="sidebar-admin-name">Admin</div>
+            <div class="admin-role" id="sidebar-admin-role">MASTER ADMINISTRATOR</div>
           </div>
         </div>
+        <button class="sidebar-signout-btn" id="sidebar-signout-btn" onclick="window.adminApp.handleSignOut()">
+          <span>🔒</span> Switch / Sign Out
+        </button>
       </div>
     </aside>
 
@@ -136,6 +139,12 @@
         </div>
 
         <div class="header-right">
+          <!-- Server Target Switcher Button -->
+          <button class="btn-server-switch" id="btn-server-switch" title="Toggle between Localhost & Cloud Server" onclick="window.adminApp.cycleServerTarget()">
+            <span id="header-server-icon">🟢</span>
+            <span id="header-server-label">Local (5000)</span>
+          </button>
+
           <!-- Pulse Health -->
           <div class="system-status-pill">
             <div class="pulse-dot"></div>
@@ -146,6 +155,9 @@
           <div class="header-actions">
             <button class="btn-header" id="btn-refresh" title="Refresh Live Data">
               <span>🔄</span> Refresh
+            </button>
+            <button class="btn-header" id="btn-admin-login-trigger" title="Admin Account Settings" onclick="window.adminApp.openModal('modal-admin-login')">
+              <span>👤</span> <span id="header-admin-display">Admin</span>
             </button>
             <button class="btn-primary" id="btn-quick-broadcast">
               <span>📢</span> Broadcast Alert
@@ -1056,6 +1068,71 @@
        MODALS
        ====================================================================== -->
 
+  <!-- Modal: Executive Admin Login & Account Switcher -->
+  <div class="modal-overlay" id="modal-admin-login">
+    <div class="modal-card login-modal-card">
+      <div class="modal-header" style="border: none; padding-bottom: 0;">
+        <div></div>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-admin-login')">✕</button>
+      </div>
+      <div class="modal-body" style="padding-top: 0;">
+        <div class="login-brand-hero">
+          <div class="login-shield-badge">🛡️</div>
+          <h2 class="login-title">CallFar Executive Console</h2>
+          <p class="login-subtitle">Sign in with your administrator credentials to access platform controls</p>
+        </div>
+
+        <!-- Target Backend Server Switcher -->
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px;">Target Backend Server</div>
+        <div class="server-pills-row">
+          <button type="button" class="server-pill active" id="pill-server-local" onclick="window.adminApp.selectServerTarget('local')">🟢 Localhost (5000)</button>
+          <button type="button" class="server-pill" id="pill-server-cloud" onclick="window.adminApp.selectServerTarget('cloud')">🌐 Render Cloud</button>
+        </div>
+
+        <!-- Quick 1-Click Administrator Profiles -->
+        <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px;">Quick Admin Profiles</div>
+        <div class="admin-chips-row">
+          <button type="button" class="admin-chip" onclick="window.adminApp.fillAdminCredentials('bitangimanaeugene27@gmail.com')">
+            <span>👑</span> <span>Eugene (Master Admin)</span>
+          </button>
+          <button type="button" class="admin-chip" onclick="window.adminApp.fillAdminCredentials('alice')">
+            <span>🛡️</span> <span>Alice (System Admin)</span>
+          </button>
+        </div>
+
+        <!-- Error Notification Banner -->
+        <div class="login-error-banner" id="login-error-banner">
+          <span>⚠️</span> <span id="login-error-text">Authentication failed.</span>
+        </div>
+
+        <form id="form-admin-login" onsubmit="event.preventDefault(); window.adminApp.submitAdminLogin();">
+          <div class="form-group">
+            <label class="form-label">Username or Registered Email *</label>
+            <input type="text" class="form-control" id="login-identifier" placeholder="e.g. eugene or bitangimanaeugene27@gmail.com" required autocomplete="username" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password *</label>
+            <div class="pwd-input-wrap">
+              <input type="password" class="form-control" id="login-password" placeholder="Enter administrator password" required autocomplete="current-password" />
+              <button type="button" class="btn-pwd-eye" id="btn-toggle-login-pwd" onclick="window.adminApp.togglePasswordVisibility('login-password', 'btn-toggle-login-pwd')">👁️</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Admin Security Passcode (Optional Elevation)</label>
+            <input type="password" class="form-control" id="login-passcode" placeholder="Default: admin2026 (elevates standard accounts)" autocomplete="off" />
+            <div class="form-hint">Allows automatically elevating standard member accounts to full administrator privileges.</div>
+          </div>
+
+          <button type="submit" class="btn-primary" id="btn-submit-login" style="width: 100%; padding: 14px; font-size: 14.5px; font-weight: 700; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <span>🔓</span> <span>Sign In &amp; Unlock Console</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Create User / Admin -->
   <div class="modal-overlay" id="modal-create-user">
     <div class="modal-card">
@@ -1206,6 +1283,69 @@
       <div class="modal-footer">
         <button class="btn-header" onclick="window.adminApp.closeModal('modal-reset-password')">Cancel</button>
         <button class="btn-primary" onclick="window.adminApp.submitResetPassword()">Set New Password</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Manage User License & Entitlements -->
+  <div class="modal-overlay" id="modal-manage-license">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Manage User License &amp; Entitlements</h2>
+        <button class="modal-close-btn" onclick="window.adminApp.closeModal('modal-manage-license')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="license-user-id" />
+        <div style="font-size: 13.5px; margin-bottom: 16px; color: var(--text-secondary);">
+          Managing privileges for: <strong id="license-user-name" style="color: #FFFFFF;">--</strong>
+        </div>
+        <div class="form-group">
+          <label class="form-label">License Tier *</label>
+          <select class="form-control" id="license-select-tier">
+            <option value="FREE">FREE (Basic VoIP, 15m limit)</option>
+            <option value="PRO">PRO (Unlimited calls, HD audio)</option>
+            <option value="ENTERPRISE">ENTERPRISE (Full features + recording)</option>
+            <option value="MASTER_ADMIN">MASTER ADMIN (Unlimited authority)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Call Duration Limit (Minutes)</label>
+          <input type="number" class="form-control" id="license-call-limit" placeholder="-1 for unlimited" value="-1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiration (Days from today)</label>
+          <select class="form-control" id="license-expiration-select">
+            <option value="30">30 Days</option>
+            <option value="90">90 Days</option>
+            <option value="365">365 Days (1 Year)</option>
+            <option value="-1" selected>Lifetime / Permanent</option>
+          </select>
+        </div>
+        <div class="toggle-row">
+          <span style="font-size: 13px; color: #FFFFFF;">Can Record Calls</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="license-can-record" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span style="font-size: 13px; color: #FFFFFF;">Can Screen Share</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="license-can-screenshare" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span style="font-size: 13px; color: #FFFFFF;">Priority WebRTC TURN Routing</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="license-priority-turn" checked />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-header" onclick="window.adminApp.closeModal('modal-manage-license')">Cancel</button>
+        <button class="btn-primary" onclick="window.adminApp.submitManageLicense()">Save Entitlements</button>
       </div>
     </div>
   </div>

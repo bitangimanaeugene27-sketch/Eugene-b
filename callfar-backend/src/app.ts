@@ -63,16 +63,17 @@ export function createApp() {
   });
   app.use(globalLimiter);
 
-  // Serve Standalone Web Admin Hub at /admin
+  // Serve Standalone Web Admin Hub at /admin, /admin-hub, /dashboard
   const adminPathCandidates = [
-    path.resolve(process.cwd(), '../callfar-admin'),
     path.resolve(process.cwd(), 'callfar-admin'),
+    path.resolve(process.cwd(), '../callfar-admin'),
+    path.resolve(process.cwd(), 'dist/callfar-admin'),
     path.resolve(process.cwd(), '../../callfar-admin'),
   ];
   const adminDir = adminPathCandidates.find((p) => fs.existsSync(p));
   if (adminDir) {
     app.use('/admin', express.static(adminDir));
-    app.get('/admin', (req, res) => {
+    app.get(['/admin', '/admin/*', '/admin-hub', '/dashboard'], (req, res) => {
       res.sendFile(path.join(adminDir, 'index.html'));
     });
   }

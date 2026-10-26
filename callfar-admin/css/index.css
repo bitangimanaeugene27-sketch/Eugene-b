@@ -1092,3 +1092,206 @@ input:checked + .toggle-slider:before {
     padding: 12px;
   }
 }
+
+/* ==========================================================================
+   Executive Admin Authentication & Server Switcher Styles
+   ========================================================================== */
+.login-modal-card {
+  max-width: 500px;
+  background: rgba(13, 20, 36, 0.96);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.85), 0 0 30px rgba(56, 189, 248, 0.15);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.login-brand-hero {
+  text-align: center;
+  margin-bottom: 22px;
+}
+
+.login-shield-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(2, 132, 199, 0.35) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  font-size: 32px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.25);
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.25); }
+  50% { box-shadow: 0 0 35px rgba(56, 189, 248, 0.5); }
+}
+
+.login-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
+.login-subtitle {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.admin-chips-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-chip {
+  flex: 1;
+  min-width: 140px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.admin-chip:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: var(--accent-cyan);
+  transform: translateY(-1px);
+}
+
+.server-pills-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  background: rgba(10, 15, 28, 0.8);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.server-pill {
+  flex: 1;
+  text-align: center;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: transparent;
+  border: none;
+}
+
+.server-pill.active {
+  background: linear-gradient(135deg, #0284C7 0%, #2563EB 100%);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+.pwd-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.pwd-input-wrap input {
+  padding-right: 44px;
+}
+
+.btn-pwd-eye {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+}
+
+.login-error-banner {
+  display: none;
+  padding: 10px 14px;
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  border-radius: var(--radius-sm);
+  color: #FDA4AF;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+
+.login-error-banner.active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-server-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-server-switch:hover {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: var(--accent-cyan);
+  color: #FFFFFF;
+}
+
+.admin-profile-card {
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.admin-profile-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-signout-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-radius: var(--radius-sm);
+  color: #FDA4AF;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-signout-btn:hover {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: var(--accent-rose);
+  color: #FFFFFF;
+}
+

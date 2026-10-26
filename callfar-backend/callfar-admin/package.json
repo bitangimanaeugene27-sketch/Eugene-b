@@ -1,0 +1,19 @@
+{
+  "name": "callfar-admin",
+  "version": "1.0.0",
+  "description": "CallFar Enterprise Admin Hub — Unified Communications Management Platform",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y serve . -l 3000",
+    "dev": "npx -y serve . -l 3000"
+  },
+  "keywords": [
+    "admin",
+    "dashboard",
+    "webrtc",
+    "callfar",
+    "management"
+  ],
+  "author": "CallFar Team",
+  "license": "ISC"
+}

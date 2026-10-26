@@ -24,15 +24,36 @@ const getStoredApiBase = () => {
 };
 
 const API_CONFIG = {
+  LOCAL_BASE: 'http://localhost:5000/api/v1',
+  CLOUD_BASE: 'https://callfar-backend.onrender.com/api/v1',
   baseUrl: getStoredApiBase(),
   tokenKey: 'callfar_admin_access_token',
   userKey: 'callfar_admin_user_profile',
+
   setBaseUrl(newBase) {
     if (!newBase) return;
     let clean = newBase.trim().replace(/\/+$/, '');
     if (!clean.endsWith('/api/v1')) clean += '/api/v1';
     this.baseUrl = clean;
     localStorage.setItem('callfar_admin_api_base', clean);
+  },
+
+  getTargetEnvironment() {
+    return this.baseUrl.includes('onrender.com') ? 'cloud' : 'local';
+  },
+
+  setTargetEnvironment(target) {
+    if (target === 'cloud') {
+      this.setBaseUrl(this.CLOUD_BASE);
+    } else {
+      const localHost = window.location.hostname && window.location.hostname !== 'callfar-backend.onrender.com'
+        ? window.location.hostname
+        : 'localhost';
+      const port = window.location.port && window.location.port !== '80' && window.location.port !== '443'
+        ? window.location.port
+        : '5000';
+      this.setBaseUrl(`http://${localHost}:${port}/api/v1`);
+    }
   },
 };
 
@@ -46,9 +67,9 @@ class AdminApiClient {
   loadStoredUser() {
     try {
       const data = localStorage.getItem(API_CONFIG.userKey);
-      return data ? JSON.parse(data) : { username: 'alice', role: 'ADMIN', displayName: 'Alice (Master Admin)' };
+      return data ? JSON.parse(data) : null;
     } catch {
-      return { username: 'alice', role: 'ADMIN', displayName: 'Alice (Master Admin)' };
+      return null;
     }
   }
 
@@ -57,6 +78,9 @@ class AdminApiClient {
     this.user = user;
     localStorage.setItem(API_CONFIG.tokenKey, token);
     localStorage.setItem(API_CONFIG.userKey, JSON.stringify(user));
+    if (window.adminApp && typeof window.adminApp.onAuthChanged === 'function') {
+      window.adminApp.onAuthChanged(user);
+    }
   }
 
   clearSession() {
@@ -64,6 +88,13 @@ class AdminApiClient {
     this.user = null;
     localStorage.removeItem(API_CONFIG.tokenKey);
     localStorage.removeItem(API_CONFIG.userKey);
+    if (window.adminApp && typeof window.adminApp.onAuthChanged === 'function') {
+      window.adminApp.onAuthChanged(null);
+    }
+  }
+
+  isAuthenticated() {
+    return Boolean(this.token && this.user && this.user.role === 'ADMIN');
   }
 
   async request(endpoint, options = {}) {
@@ -87,13 +118,12 @@ class AdminApiClient {
 
       // Token Expired / Unauthorized
       if (res.status === 401 && !endpoint.includes('/auth/login')) {
-        // Attempt quick auto-login as default system admin in dev
-        await this.autoLoginDefaultAdmin();
-        // Retry once with new token
-        headers['Authorization'] = `Bearer ${this.token}`;
-        const retryRes = await fetch(url, { ...options, headers });
-        const retryData = await retryRes.json();
-        return retryData;
+        // Clear stale session
+        this.clearSession();
+        if (window.adminApp && typeof window.adminApp.showLoginModal === 'function') {
+          window.adminApp.showLoginModal('Session expired or admin privilege required. Please sign in.');
+        }
+        throw new Error('Unauthorized: Admin session required');
       }
 
       const data = await res.json();
@@ -103,41 +133,64 @@ class AdminApiClient {
       return data;
     } catch (err) {
       console.warn(`[API Client Warning] Failed fetching ${endpoint}:`, err.message);
+      if (err.message.includes('Unauthorized') || err.message.includes('Admin session')) {
+        throw err;
+      }
       // Fallback to local simulated data generator so UI never breaks
       return this.handleFallback(endpoint, options, err);
     }
   }
 
-  async autoLoginDefaultAdmin() {
-    try {
-      const res = await fetch(`${API_CONFIG.baseUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: 'alice', password: 'Password123!' }),
-      });
-      const data = await res.json();
-      const token = data.data?.tokens?.accessToken || data.data?.accessToken;
-      if (data.success && token) {
-        this.setSession(token, data.data.user);
-        return true;
-      }
-    } catch (e) {
-      console.warn('Auto-login failed:', e);
-    }
-    return false;
-  }
-
   /* ── Auth API ── */
-  async login(identifier, password) {
-    const res = await this.request('/auth/login', {
+  async login(identifier, password, adminPasscode) {
+    const url = `${API_CONFIG.baseUrl}/auth/login`;
+    const res = await fetch(url, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password }),
     });
-    const token = res.data?.tokens?.accessToken || res.data?.accessToken;
-    if (res.success && token) {
-      this.setSession(token, res.data.user);
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Login failed. Please verify your credentials.');
     }
-    return res;
+
+    let token = data.data?.tokens?.accessToken || data.data?.accessToken;
+    let user = data.data?.user;
+
+    // If user is a MEMBER but provided admin passcode, elevate them immediately
+    if (user && user.role !== 'ADMIN' && adminPasscode) {
+      try {
+        const elevateRes = await fetch(`${API_CONFIG.baseUrl}/auth/elevate-admin`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ adminPasscode }),
+        });
+        const elevateData = await elevateRes.json();
+        if (elevateData.success && elevateData.data?.user) {
+          user = elevateData.data.user;
+        }
+      } catch (elevateErr) {
+        console.warn('[API Client] Passcode elevation failed:', elevateErr);
+      }
+    }
+
+    if (user.role !== 'ADMIN') {
+      throw new Error('Access Denied: This account does not possess Administrator privileges. Enter admin passcode to elevate.');
+    }
+
+    this.setSession(token, user);
+    return { success: true, user, token };
+  }
+
+  async elevateAdmin(adminPasscode) {
+    return this.request('/auth/elevate-admin', {
+      method: 'POST',
+      body: JSON.stringify({ adminPasscode }),
+    });
   }
 
   /* ── Stats & Health ── */
@@ -404,3 +457,4 @@ class AdminApiClient {
 }
 
 export const adminApi = new AdminApiClient();
+export { API_CONFIG };
