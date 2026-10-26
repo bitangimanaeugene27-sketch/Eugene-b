@@ -29,12 +29,12 @@ export const ENV = {
 
   ADMIN_INVITE_CODE: process.env.ADMIN_INVITE_CODE || 'admin2026',
 
-  // Email & Password Reset
-  SMTP_HOST: process.env.SMTP_HOST || '',
+  // Email & Password Reset (Gmail SMTP active with fallback for production cloud)
+  SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
   SMTP_PORT: parseInt(process.env.SMTP_PORT || '587', 10),
-  SMTP_USER: process.env.SMTP_USER || '',
-  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_USER: process.env.SMTP_USER || 'bitangimanaeugene27@gmail.com',
+  SMTP_PASS: process.env.SMTP_PASS || 'ysis gwgt oxgs cebk',
   SMTP_SECURE: process.env.SMTP_SECURE === 'true',
-  EMAIL_FROM: process.env.EMAIL_FROM || 'CallFar Security <noreply@callfar.app>',
-  APP_URL: process.env.APP_URL || process.env.SERVER_URL || 'http://localhost:5000',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'CallFar Security <bitangimanaeugene27@gmail.com>',
+  APP_URL: process.env.APP_URL || process.env.SERVER_URL || 'https://callfar-backend.onrender.com',
 };
