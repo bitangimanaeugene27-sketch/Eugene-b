@@ -12,11 +12,7 @@ export interface SendPasswordResetOptions {
 export class EmailService {
   private static transporter: Transporter | null = null;
 
-  private static async getTransporter(): Promise<Transporter> {
-    if (this.transporter) {
-      return this.transporter;
-    }
-
+  private static createTransporterInstance(): Transporter {
     const host = ENV.SMTP_HOST?.trim() || '';
     const user = ENV.SMTP_USER?.trim() || '';
     const rawPass = ENV.SMTP_PASS || '';
@@ -24,59 +20,51 @@ export class EmailService {
 
     if (host && user && pass) {
       if (host.toLowerCase().includes('gmail')) {
-        this.transporter = nodemailer.createTransport({
+        return nodemailer.createTransport({
           service: 'gmail',
-          connectionTimeout: 7000,
-          greetingTimeout: 7000,
-          socketTimeout: 8000,
+          connectionTimeout: 20000,
+          greetingTimeout: 20000,
+          socketTimeout: 25000,
           auth: {
             user,
             pass,
           },
         });
-        console.log(`[EmailService] Initialized Gmail SMTP transport for user: ${user}`);
       } else {
-        this.transporter = nodemailer.createTransport({
+        return nodemailer.createTransport({
           host,
           port: ENV.SMTP_PORT || 587,
           secure: ENV.SMTP_SECURE || ENV.SMTP_PORT === 465,
-          connectionTimeout: 7000,
-          greetingTimeout: 7000,
-          socketTimeout: 8000,
+          connectionTimeout: 20000,
+          greetingTimeout: 20000,
+          socketTimeout: 25000,
           auth: {
             user,
             pass,
           },
         });
-        console.log(`[EmailService] Initialized custom SMTP transport at ${host}:${ENV.SMTP_PORT}`);
-      }
-    } else {
-      // In development or when SMTP not provided, use an Ethereal test account or local stream fallback
-      try {
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000));
-        const testAccount: any = await Promise.race([nodemailer.createTestAccount(), timeoutPromise]);
-        this.transporter = nodemailer.createTransport({
-          host: 'smtp.ethereal.email',
-          port: 587,
-          secure: false,
-          connectionTimeout: 4000,
-          greetingTimeout: 4000,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          },
-        });
-        console.log(`[EmailService] Created Ethereal test account: ${testAccount.user}`);
-      } catch (err) {
-        // Fallback json/stream transporter for instantaneous local execution without network block
-        this.transporter = nodemailer.createTransport({
-          jsonTransport: true,
-        });
-        console.log(`[EmailService] Using instantaneous JSON/Stream transport fallback`);
       }
     }
 
+    return nodemailer.createTransport({
+      jsonTransport: true,
+    });
+  }
+
+  private static async getTransporter(): Promise<Transporter> {
+    if (!this.transporter) {
+      this.transporter = this.createTransporterInstance();
+    }
     return this.transporter;
+  }
+
+  public static resetTransporter(): void {
+    if (this.transporter) {
+      try {
+        this.transporter.close();
+      } catch {}
+      this.transporter = null;
+    }
   }
 
   /**
@@ -149,18 +137,21 @@ export class EmailService {
                     </p>
 
                     <!-- Option 1: 1-Tap Reset Link Button -->
-                    <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; margin-bottom: 24px; text-align: center;">
-                      <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #60A5FA; margin-bottom: 14px;">
-                        Option 1 &bull; Direct Web Password Reset
+                    <div style="background: rgba(30, 41, 59, 0.7); border: 1.5px solid #2563EB; border-radius: 16px; padding: 26px 20px; margin-bottom: 24px; text-align: center; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.35);">
+                      <div style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: #60A5FA; margin-bottom: 8px;">
+                        🔗 Step 1 &bull; Click to Accept &amp; Reset
                       </div>
+                      <p style="margin: 0 0 16px 0; font-size: 13.5px; color: #CBD5E1; line-height: 1.5;">
+                        Tap the secure button below to choose your new CallFar password:
+                      </p>
                       <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 auto;">
                         <tr>
                           <td align="center">
                             <table role="presentation" border="0" cellpadding="0" cellspacing="0">
                               <tr>
-                                <td align="center" style="border-radius: 12px; background-color: #2563EB;">
-                                  <a href="${resetUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 16px 44px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #2563EB; letter-spacing: 0.3px; text-align: center;">
-                                    Reset Password
+                                <td align="center" style="border-radius: 14px; background: linear-gradient(135deg, #2563EB 0%, #0284C7 100%);">
+                                  <a href="${resetUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 18px 48px; font-size: 16.5px; font-weight: 800; color: #FFFFFF; text-decoration: none; border-radius: 14px; background: #2563EB; letter-spacing: 0.4px; text-align: center; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5);">
+                                    👉 Accept &amp; Reset Password
                                   </a>
                                 </td>
                               </tr>
@@ -169,7 +160,7 @@ export class EmailService {
                         </tr>
                       </table>
                       <div style="margin-top: 14px; font-size: 12px; color: #94A3B8;">
-                        Clicking above opens the secure CallFar password reset page in your browser.
+                        Opens the official, encrypted CallFar password reset portal in your browser.
                       </div>
                     </div>
 
@@ -270,19 +261,32 @@ Ultra High-Definition Voice, Video & Encrypted Messaging
     try {
       const transporter = await this.getTransporter();
       const mailOptions: SendMailOptions = {
-        from: ENV.EMAIL_FROM || `"CallFar" <${ENV.SMTP_USER}>`,
+        from: ENV.EMAIL_FROM || `"CallFar Security" <${ENV.SMTP_USER}>`,
         replyTo: ENV.EMAIL_FROM || `"CallFar Support" <${ENV.SMTP_USER}>`,
         to,
-        subject: 'Reset your CallFar password',
+        subject: '🔐 Reset Your CallFar Password',
         text: plainText,
         html: htmlContent,
       };
 
-      const sendPromise = transporter.sendMail(mailOptions);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SMTP sendMail exceeded 8000ms limit')), 8000)
-      );
-      const info: any = await Promise.race([sendPromise, timeoutPromise]);
+      // Helper to attempt sending with 25s timeout
+      const attemptSend = async (): Promise<any> => {
+        const activeTransporter = await this.getTransporter();
+        const sendPromise = activeTransporter.sendMail(mailOptions);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('SMTP sendMail exceeded 25000ms limit')), 25000)
+        );
+        return await Promise.race([sendPromise, timeoutPromise]);
+      };
+
+      let info: any;
+      try {
+        info = await attemptSend();
+      } catch (firstErr: any) {
+        console.warn(`[EmailService] ⚠️ First send attempt failed (${firstErr?.message || firstErr}), resetting transport & retrying immediately...`);
+        this.resetTransporter();
+        info = await attemptSend();
+      }
 
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {
@@ -296,7 +300,8 @@ Ultra High-Definition Voice, Video & Encrypted Messaging
         previewUrl,
       };
     } catch (err: any) {
-      console.error(`[EmailService] ❌ Failed to send email to ${to}:`, err.message || err);
+      this.resetTransporter();
+      console.error(`[EmailService] ❌ Failed to send email to ${to} after retry:`, err.message || err);
       return {
         success: false,
       };

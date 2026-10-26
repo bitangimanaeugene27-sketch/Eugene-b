@@ -431,7 +431,7 @@ export class AuthController {
         <div class="card-icon icon-warning">⏱️</div>
         <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 10px;">Link Expired or Already Used</h2>
         <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-          For your account security, CallFar password reset links are only valid for 15 minutes and can only be used once.
+          For your account security, CallFar password reset links are valid for 2 hours and can only be used once.
         </p>
         <a href="callfar://forgot-password" class="btn">
           Open CallFar App to Request New Code

@@ -93,6 +93,17 @@ function MainTabs() {
   );
 }
 
+const linking = {
+  prefixes: ['callfar://'],
+  config: {
+    screens: {
+      Login: 'login',
+      ForgotPassword: 'reset-password',
+      Register: 'register',
+    },
+  },
+};
+
 export function RootNavigator() {
   const { user, isAdmin, isLoading } = useAuth();
 
@@ -112,7 +123,7 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <>

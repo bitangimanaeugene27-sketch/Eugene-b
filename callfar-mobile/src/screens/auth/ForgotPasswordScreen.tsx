@@ -11,6 +11,7 @@ import {
   TextInput,
   Clipboard,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { THEME } from '../../styles/theme';
@@ -24,8 +25,8 @@ const EMAIL_REGEX = /^[a-zA-Z0-9_%+-]+(?:\.[a-zA-Z0-9_%+-]+)*@(?:[a-zA-Z0-9](?:[
 export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const { forgotPassword, resetPassword } = useAuth();
 
-  const [step, setStep] = useState<'request' | 'verify' | 'success'>('request');
-  const [identifier, setIdentifier] = useState(route?.params?.initialEmail || '');
+  const [step, setStep] = useState<'request' | 'email_sent' | 'success'>('request');
+  const [emailInput, setEmailInput] = useState(route?.params?.initialEmail || '');
   const [targetAccountEmail, setTargetAccountEmail] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -33,17 +34,17 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendSuccessNotice, setResendSuccessNotice] = useState<string | null>(null);
-  const [devPreviewCode, setDevPreviewCode] = useState<string | null>(null);
-  const [isLiveEmailSent, setIsLiveEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [unregisteredIdentifier, setUnregisteredIdentifier] = useState<string | null>(null);
+  const [showManualCodeInput, setShowManualCodeInput] = useState(false);
+  const [devPreviewCode, setDevPreviewCode] = useState<string | null>(null);
   const [copiedNotification, setCopiedNotification] = useState(false);
 
   // Input validation state
-  const trimmedIdentifier = identifier.trim();
-  const isInputFilled = trimmedIdentifier.length > 0;
-  const isEmailLike = trimmedIdentifier.includes('@');
-  const isEmailFormatValid = isEmailLike ? EMAIL_REGEX.test(trimmedIdentifier) : trimmedIdentifier.length >= 3;
+  const trimmedEmail = emailInput.trim();
+  const isInputFilled = trimmedEmail.length > 0;
+  const isEmailLike = trimmedEmail.includes('@');
+  const isEmailFormatValid = isEmailLike ? EMAIL_REGEX.test(trimmedEmail) : trimmedEmail.length >= 3;
 
   // Password requirements
   const hasMinLength = newPassword.length >= 8;
@@ -51,6 +52,12 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const hasNumber = /[0-9]/.test(newPassword);
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
   const isPasswordValid = hasMinLength && hasUppercase && hasNumber && passwordsMatch;
+
+  useEffect(() => {
+    if (route?.params?.initialEmail) {
+      setEmailInput(route.params.initialEmail);
+    }
+  }, [route?.params?.initialEmail]);
 
   useEffect(() => {
     let timer: any;
@@ -61,12 +68,12 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   }, [resendCooldown]);
 
   const handleRequestReset = async () => {
-    if (!trimmedIdentifier) {
-      Alert.alert('Input Required', 'Please enter your registered email address, username, or phone number.');
+    if (!trimmedEmail) {
+      Alert.alert('Email Required', 'Please enter the email address you used when you registered.');
       return;
     }
 
-    if (isEmailLike && !EMAIL_REGEX.test(trimmedIdentifier)) {
+    if (isEmailLike && !EMAIL_REGEX.test(trimmedEmail)) {
       Alert.alert(
         'Invalid Email Format',
         'Please provide a complete and valid email address (e.g. user@example.com).'
@@ -77,34 +84,38 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
     try {
       setLoading(true);
       setUnregisteredIdentifier(null);
-      const res = await forgotPassword(trimmedIdentifier.toLowerCase());
-      
-      const code = res?.verificationCode || res?.data?.verificationCode || res?.devCode;
-      if (code) {
-        setDevPreviewCode(code);
-        setVerificationCode(code);
-      }
-      setIsLiveEmailSent(Boolean(res?.isLiveEmailSent));
-      setTargetAccountEmail(res?.maskedEmail || res?.email || trimmedIdentifier);
+      const res = await forgotPassword(trimmedEmail.toLowerCase());
 
-      setStep('verify');
+      const displayedEmail = res?.email || trimmedEmail;
+      setTargetAccountEmail(displayedEmail);
+
+      // Only in dev/offline mode without live SMTP will verificationCode be present
+      if (res?.verificationCode) {
+        setDevPreviewCode(res.verificationCode);
+        setVerificationCode(res.verificationCode);
+      }
+
+      setStep('email_sent');
       setResendCooldown(45);
     } catch (err: any) {
-      const isNotFound = err.response?.status === 404 || err.response?.data?.canRegister || err.response?.data?.errorCode === 'ACCOUNT_NOT_FOUND';
-      
+      const isNotFound =
+        err.response?.status === 404 ||
+        err.response?.data?.canRegister ||
+        err.response?.data?.errorCode === 'ACCOUNT_NOT_FOUND';
+
       if (isNotFound) {
-        setUnregisteredIdentifier(trimmedIdentifier);
+        setUnregisteredIdentifier(trimmedEmail);
         Alert.alert(
           'Account Not Found',
-          `No CallFar account was found matching "${trimmedIdentifier}". Would you like to create a new account?`,
+          `No CallFar account was found matching "${trimmedEmail}". Would you like to create a new account?`,
           [
             {
               text: '✨ Create Account',
               style: 'default',
               onPress: () => {
                 navigation.navigate('Register', {
-                  prefillEmail: isEmailLike ? trimmedIdentifier : undefined,
-                  prefillUsername: !isEmailLike ? trimmedIdentifier : undefined,
+                  prefillEmail: isEmailLike ? trimmedEmail : undefined,
+                  prefillUsername: !isEmailLike ? trimmedEmail : undefined,
                 });
               },
             },
@@ -120,15 +131,12 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
     }
   };
 
-  const handleResendCodeAndLink = async () => {
+  const handleResendLink = async () => {
     if (resending || resendCooldown > 0) return;
 
-    const target = (trimmedIdentifier || targetAccountEmail || '').trim();
+    const target = (trimmedEmail || targetAccountEmail || '').trim();
     if (!target) {
-      Alert.alert(
-        'Identifier Required',
-        'Account email or username is missing. Please tap "Change Email" to enter your email address.'
-      );
+      Alert.alert('Email Required', 'Please tap "Change Email" to enter your email address.');
       return;
     }
 
@@ -137,32 +145,48 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
       setResendSuccessNotice(null);
       const res = await forgotPassword(target.toLowerCase());
 
-      const code = res?.verificationCode || res?.data?.verificationCode || res?.devCode;
-      if (code) {
-        setDevPreviewCode(code);
-        setVerificationCode(code);
+      if (res?.verificationCode) {
+        setDevPreviewCode(res.verificationCode);
+        setVerificationCode(res.verificationCode);
       }
-      setIsLiveEmailSent(Boolean(res?.isLiveEmailSent));
+
       setResendCooldown(45);
-      setResendSuccessNotice('Fresh 6-digit code & link dispatched!');
+      setResendSuccessNotice('Fresh reset link dispatched to your email!');
       setTimeout(() => setResendSuccessNotice(null), 5000);
 
       Alert.alert(
-        'Code & Link Dispatched! ✉️',
-        `A fresh 6-digit verification code and reset link have been dispatched to ${res?.maskedEmail || targetAccountEmail || target}.\n\nCheck your email or use the new 6-digit code pre-filled below to reset immediately.`
+        'Reset Link Sent! ✉️',
+        `A fresh password reset link has been dispatched to ${res?.maskedEmail || targetAccountEmail || target}.\n\nPlease check your inbox and spam folder.`
       );
     } catch (err: any) {
-      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
-      const msg = isTimeout
-        ? 'Connection timed out, but your current 6-digit code may still be valid. You can reset below or tap resend again.'
-        : (err.response?.data?.message || err.message || 'Failed to resend code and link. Please check your network connection.');
+      const msg = err.response?.data?.message || err.message || 'Failed to resend link. Please check your network connection.';
       Alert.alert('Resend Notice', msg);
     } finally {
       setResending(false);
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleOpenEmailApp = async () => {
+    try {
+      const mailtoUrl = 'mailto:';
+      const canOpen = await Linking.canOpenURL(mailtoUrl);
+      if (canOpen) {
+        await Linking.openURL(mailtoUrl);
+      } else {
+        Alert.alert(
+          'Open Your Email',
+          `Please open your email app or visit your email provider in a browser to view the message sent to ${targetAccountEmail}.`
+        );
+      }
+    } catch {
+      Alert.alert(
+        'Open Your Email',
+        `Please open your email inbox to view the password reset email sent to ${targetAccountEmail}.`
+      );
+    }
+  };
+
+  const handleManualResetPassword = async () => {
     let effectiveTokenOrCode = verificationCode.trim();
 
     // If user pasted a full reset link (e.g. https://.../reset-password?token=abc...)
@@ -180,7 +204,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
     }
 
     if (effectiveTokenOrCode.length < 6) {
-      Alert.alert('Invalid Code', 'The verification code must be at least 6 digits or a valid link/token.');
+      Alert.alert('Invalid Code', 'The verification code must be at least 6 digits or a valid reset token.');
       return;
     }
 
@@ -238,32 +262,39 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
           <View style={styles.badgeWrapper}>
             <Text style={styles.badgeText}>🔒 CallFar Account Recovery</Text>
           </View>
-          <Text style={styles.title}>Password Recovery</Text>
+          <Text style={styles.title}>
+            {step === 'request'
+              ? 'Forgot Password?'
+              : step === 'email_sent'
+              ? 'Check Your Email'
+              : 'Password Updated!'}
+          </Text>
           <Text style={styles.subtitle}>
             {step === 'request'
-              ? 'Find your account to receive a secure reset link & 6-digit verification code'
-              : step === 'verify'
-              ? 'Enter your verification code and set a strong new password'
+              ? 'Enter your registered email address and we will send you a secure link to reset your password.'
+              : step === 'email_sent'
+              ? 'We have sent a secure password reset link to your registered email address.'
               : 'Your account password has been updated successfully!'}
           </Text>
         </View>
 
-        {/* STEP 1: Request Reset */}
+        {/* ─── STEP 1: Enter Email & Request Reset Link ───────────────────── */}
         {step === 'request' && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Find Your Account</Text>
+            <Text style={styles.cardTitle}>Reset Your Password</Text>
             <Text style={styles.cardSubtitle}>
-              Enter your registered email address, username, or phone number:
+              Please enter the email address you used when you registered for CallFar:
             </Text>
 
             <Input
-              label="Email, Username, or Phone *"
-              placeholder="e.g. name@example.com or @username"
-              value={identifier}
+              label="Registered Email Address *"
+              placeholder="e.g. name@example.com"
+              value={emailInput}
               onChangeText={(text) => {
-                setIdentifier(text);
+                setEmailInput(text);
                 if (unregisteredIdentifier) setUnregisteredIdentifier(null);
               }}
+              keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
             />
@@ -273,17 +304,17 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
               <View style={styles.feedbackContainer}>
                 {isEmailFormatValid ? (
                   <Text style={styles.feedbackValid}>
-                    ✓ Valid {isEmailLike ? 'email address' : 'account identifier'} format
+                    ✓ Valid {isEmailLike ? 'email address' : 'account'} format
                   </Text>
                 ) : (
                   <Text style={styles.feedbackInvalid}>
-                    ⚠️ Please enter a complete email address or username
+                    ⚠️ Please enter a complete email address (e.g. name@domain.com)
                   </Text>
                 )}
               </View>
             )}
 
-            {/* Unregistered Account Banner (If user has no account yet) */}
+            {/* Unregistered Account Notice */}
             {unregisteredIdentifier && (
               <View style={styles.notRegisteredCard}>
                 <View style={styles.notRegisteredHeader}>
@@ -291,7 +322,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.notRegisteredTitle}>Don't have an account yet?</Text>
                     <Text style={styles.notRegisteredSubtitle}>
-                      No account was found for "{unregisteredIdentifier}". Tap below to register your account now.
+                      No account was found for "{unregisteredIdentifier}". Tap below to register a new account now.
                     </Text>
                   </View>
                 </View>
@@ -313,27 +344,27 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
             )}
 
             <Button
-              title="Send Reset Code & Link"
+              title="✉️ Send Password Reset Link"
               onPress={handleRequestReset}
               loading={loading}
               style={styles.submitBtn}
             />
 
-            {/* Helpful Multi-Channel Notice */}
+            {/* Security Notice */}
             <View style={styles.infoBox}>
-              <Text style={styles.infoIcon}>💡</Text>
+              <Text style={styles.infoIcon}>🛡️</Text>
               <Text style={styles.infoText}>
-                Even if you can't access your email right now, you can reset your password directly in the app using your 6-digit verification code.
+                We will email you a secure, time-sensitive link that opens directly in your browser or phone so you can easily choose a new password.
               </Text>
             </View>
 
-            {/* Direct Create Account Option */}
+            {/* Create Account Option */}
             <View style={styles.createAccountRow}>
               <Text style={styles.footerText}>New to CallFar? </Text>
               <TouchableOpacity
                 onPress={() => {
                   navigation.navigate('Register', {
-                    prefillEmail: isEmailLike ? trimmedIdentifier : undefined,
+                    prefillEmail: isEmailLike ? trimmedEmail : undefined,
                   });
                 }}
               >
@@ -350,169 +381,230 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
           </View>
         )}
 
-        {/* STEP 2: Verify Code and Reset Password */}
-        {step === 'verify' && (
+        {/* ─── STEP 2: Email Dispatched & Instructions ─────────────────────── */}
+        {step === 'email_sent' && (
           <View style={styles.card}>
-            
-            {/* Dispatched Confirmation Header with "Change Email" Button */}
-            <View style={styles.dispatchedBanner}>
-              <Text style={styles.dispatchedIcon}>✉️</Text>
-              <View style={styles.dispatchedContent}>
-                <View style={styles.dispatchedTopRow}>
-                  <Text style={styles.dispatchedTitle}>
-                    {isLiveEmailSent ? 'Email Dispatched' : 'Ready for In-App Reset'}
+            {/* Animated / Glowing Mail Hero Badge */}
+            <View style={styles.emailHeroWrapper}>
+              <View style={styles.emailHeroIconCircle}>
+                <Text style={styles.emailHeroIcon}>✉️</Text>
+              </View>
+              <View style={styles.emailSentBadge}>
+                <Text style={styles.emailSentBadgeText}>✓ RESET LINK DISPATCHED</Text>
+              </View>
+            </View>
+
+            <Text style={styles.emailSentHeading}>Check Your Inbox</Text>
+            <Text style={styles.emailSentSubheading}>
+              We have dispatched a password reset link to:
+            </Text>
+
+            {/* Highlighted Email Badge */}
+            <View style={styles.emailPill}>
+              <Text style={styles.emailPillText}>{targetAccountEmail}</Text>
+            </View>
+
+            {/* Visual Step-by-Step Instructions */}
+            <View style={styles.stepsCard}>
+              <View style={styles.stepItem}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Open Your Email</Text>
+                  <Text style={styles.stepDesc}>
+                    Check your inbox (or spam folder) for the email from CallFar Security.
                   </Text>
-                  <TouchableOpacity
-                    style={styles.changeEmailPill}
-                    onPress={() => setStep('request')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.changeEmailPillText}>✏️ Change Email</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.dispatchedEmail}>{targetAccountEmail}</Text>
-                <Text style={styles.dispatchedNote}>
-                  {isLiveEmailSent
-                    ? 'Check your inbox & spam folder, or enter the 6-digit code below to reset immediately.'
-                    : 'Use the 6-digit verification code below to set your new password directly.'}
-                </Text>
-              </View>
-            </View>
-
-            {/* In-App Direct Reset Notice */}
-            <View style={styles.inAppResetNotice}>
-              <Text style={styles.inAppResetIcon}>⚡</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inAppResetTitle}>Instant In-App Reset</Text>
-                <Text style={styles.inAppResetDesc}>
-                  Email link not reaching you? You do not need the email link! You can reset your password immediately using the 6-digit code below.
-                </Text>
-              </View>
-            </View>
-
-            {/* High-Tech Verification Code Card */}
-            {devPreviewCode ? (
-              <View style={styles.codeCard}>
-                <View style={styles.codeCardHeader}>
-                  <Text style={styles.codeCardBadge}>🔑 6-Digit Verification Code</Text>
-                  <TouchableOpacity
-                    style={styles.copyBtn}
-                    onPress={handleCopyCode}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.copyBtnText}>
-                      {copiedNotification ? '✓ Copied!' : '📋 Copy Code'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.codeCardNumber}>{devPreviewCode}</Text>
-                <View style={styles.autoFilledBadge}>
-                  <Text style={styles.autoFilledText}>✓ Pre-filled for your convenience</Text>
                 </View>
               </View>
-            ) : null}
 
-            <Text style={styles.inputLabel}>6-Digit Verification Code or Reset Link *</Text>
-            <View style={styles.codeInputWrapper}>
-              <TextInput
-                style={[
-                  styles.codeInput,
-                  verificationCode.length > 6 && { fontSize: 14, letterSpacing: 0.5 },
-                ]}
-                placeholder="123456 or paste reset link"
-                placeholderTextColor="#475569"
-                value={verificationCode}
-                onChangeText={setVerificationCode}
-                keyboardType="default"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.stepDivider} />
+
+              <View style={styles.stepItem}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Tap "Reset Password"</Text>
+                  <Text style={styles.stepDesc}>
+                    Click the secure link in the email to open the password reset page.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.stepDivider} />
+
+              <View style={styles.stepItem}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepTitle}>Save New Password</Text>
+                  <Text style={styles.stepDesc}>
+                    Enter your new password and return to CallFar to sign in immediately.
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <Input
-              label="New Password *"
-              placeholder="Min 8 characters, 1 uppercase, 1 digit"
-              value={newPassword}
-              onChangeText={setNewPassword}
-              isPassword
-            />
+            {/* 1-Tap Open Email Client Button */}
+            <TouchableOpacity
+              style={styles.openMailBtn}
+              onPress={handleOpenEmailApp}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.openMailBtnText}>📬 Open Email App</Text>
+            </TouchableOpacity>
 
-            <Input
-              label="Confirm New Password *"
-              placeholder="Re-enter your new password"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              isPassword
-            />
-
-            {/* Password Criteria Checklist */}
-            <View style={styles.criteriaBox}>
-              <Text style={[styles.criteriaItem, hasMinLength && styles.criteriaItemValid]}>
-                {hasMinLength ? '●' : '○'} At least 8 characters
-              </Text>
-              <Text style={[styles.criteriaItem, hasUppercase && styles.criteriaItemValid]}>
-                {hasUppercase ? '●' : '○'} At least one uppercase letter (A-Z)
-              </Text>
-              <Text style={[styles.criteriaItem, hasNumber && styles.criteriaItemValid]}>
-                {hasNumber ? '●' : '○'} At least one number (0-9)
-              </Text>
-              <Text style={[styles.criteriaItem, passwordsMatch && styles.criteriaItemValid]}>
-                {passwordsMatch ? '●' : '○'} Passwords match
-              </Text>
-            </View>
-
-            <Button
-              title="Confirm & Save New Password"
-              onPress={handleResetPassword}
-              loading={loading}
-              style={styles.submitBtn}
-            />
-
-            {/* Resend Success Toast / Notice */}
+            {/* Resend Success Notice */}
             {resendSuccessNotice && (
               <View style={styles.resendSuccessBadge}>
                 <Text style={styles.resendSuccessText}>✓ {resendSuccessNotice}</Text>
               </View>
             )}
 
-            {/* Resend & Actions Row */}
+            {/* Resend Action Row */}
             <View style={styles.resendRow}>
               {resending ? (
                 <View style={styles.resendingContainer}>
                   <ActivityIndicator size="small" color="#38BDF8" />
-                  <Text style={styles.resendingText}>Sending fresh code & email link...</Text>
+                  <Text style={styles.resendingText}>Sending fresh email link...</Text>
                 </View>
               ) : resendCooldown > 0 ? (
                 <View style={styles.cooldownBadge}>
                   <Text style={styles.cooldownText}>
-                    ⏳ Resend available in {resendCooldown}s
+                    ⏳ Resend link in {resendCooldown}s
                   </Text>
                 </View>
               ) : (
                 <TouchableOpacity
                   style={styles.resendBtn}
-                  onPress={handleResendCodeAndLink}
+                  onPress={handleResendLink}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.resendLinkText}>🔄 Resend Code & Email Link</Text>
+                  <Text style={styles.resendLinkText}>🔄 Resend Reset Link</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Edit / Try Another Email */}
+            {/* Change Email Link */}
             <TouchableOpacity
               style={styles.changeEmailFooter}
               onPress={() => setStep('request')}
+              activeOpacity={0.7}
             >
               <Text style={styles.changeEmailFooterText}>
-                Mistyped your email? <Text style={{ color: '#38BDF8', fontWeight: '700' }}>Change Email / Identifier</Text>
+                Wrong email address?{' '}
+                <Text style={{ color: '#38BDF8', fontWeight: '700' }}>
+                  Change Email
+                </Text>
               </Text>
             </TouchableOpacity>
 
+            {/* Optional Collapsible In-App Reset Section */}
+            <View style={styles.manualToggleContainer}>
+              <TouchableOpacity
+                style={styles.manualToggleBtn}
+                onPress={() => setShowManualCodeInput(!showManualCodeInput)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.manualToggleText}>
+                  {showManualCodeInput
+                    ? '▲ Hide in-app reset form'
+                    : '▼ Have a 6-digit code or link? Reset in-app'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {showManualCodeInput && (
+              <View style={styles.manualCard}>
+                {devPreviewCode ? (
+                  <View style={styles.codeCard}>
+                    <View style={styles.codeCardHeader}>
+                      <Text style={styles.codeCardBadge}>🔑 6-Digit Verification Code</Text>
+                      <TouchableOpacity
+                        style={styles.copyBtn}
+                        onPress={handleCopyCode}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.copyBtnText}>
+                          {copiedNotification ? '✓ Copied!' : '📋 Copy Code'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.codeCardNumber}>{devPreviewCode}</Text>
+                    <View style={styles.autoFilledBadge}>
+                      <Text style={styles.autoFilledText}>✓ Pre-filled for your convenience</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                <Text style={styles.inputLabel}>Verification Code or Paste Reset Link *</Text>
+                <View style={styles.codeInputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.codeInput,
+                      verificationCode.length > 6 && { fontSize: 13, letterSpacing: 0.5 },
+                    ]}
+                    placeholder="123456 or paste full reset link"
+                    placeholderTextColor="#475569"
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <Input
+                  label="New Password *"
+                  placeholder="Min 8 characters, 1 uppercase, 1 digit"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  isPassword
+                />
+
+                <Input
+                  label="Confirm New Password *"
+                  placeholder="Re-enter your new password"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  isPassword
+                />
+
+                {/* Password Criteria Checklist */}
+                <View style={styles.criteriaBox}>
+                  <Text style={[styles.criteriaItem, hasMinLength && styles.criteriaItemValid]}>
+                    {hasMinLength ? '●' : '○'} At least 8 characters
+                  </Text>
+                  <Text style={[styles.criteriaItem, hasUppercase && styles.criteriaItemValid]}>
+                    {hasUppercase ? '●' : '○'} At least one uppercase letter (A-Z)
+                  </Text>
+                  <Text style={[styles.criteriaItem, hasNumber && styles.criteriaItemValid]}>
+                    {hasNumber ? '●' : '○'} At least one number (0-9)
+                  </Text>
+                  <Text style={[styles.criteriaItem, passwordsMatch && styles.criteriaItemValid]}>
+                    {passwordsMatch ? '●' : '○'} Passwords match
+                  </Text>
+                </View>
+
+                <Button
+                  title="Confirm & Save New Password"
+                  onPress={handleManualResetPassword}
+                  loading={loading}
+                  style={styles.submitBtn}
+                />
+              </View>
+            )}
+
+            <View style={styles.footerRow}>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text style={styles.linkText}>← Return to Sign In</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* STEP 3: Success Screen */}
+        {/* ─── STEP 3: Success Screen ──────────────────────────────────────── */}
         {step === 'success' && (
           <View style={styles.card}>
             <View style={styles.successIconCircle}>
@@ -520,7 +612,7 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
             </View>
             <Text style={styles.successTitle}>Password Updated!</Text>
             <Text style={styles.successMessage}>
-              Your CallFar password has been successfully reset. You can now sign in with your updated credentials.
+              Your CallFar password has been successfully updated. You can now sign in with your updated credentials.
             </Text>
 
             <Button
@@ -597,7 +689,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
     lineHeight: 19,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
   },
   card: {
     backgroundColor: '#0F172A',
@@ -719,7 +811,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 6,
   },
   footerText: {
     color: '#94A3B8',
@@ -735,97 +827,241 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-  dispatchedBanner: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+  // Step 2: Email Sent Hero & Elements
+  emailHeroWrapper: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  emailHeroIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(37, 99, 235, 0.18)',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  emailHeroIcon: {
+    fontSize: 34,
+  },
+  emailSentBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  emailSentBadgeText: {
+    color: '#34D399',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  emailSentHeading: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F8FAFC',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emailSentSubheading: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  emailPill: {
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  emailPillText: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  stepsCard: {
+    backgroundColor: '#070B14',
+    borderWidth: 1,
+    borderColor: '#1E293B',
     borderRadius: 14,
     padding: 14,
-    marginBottom: 14,
-    gap: 12,
+    marginBottom: 20,
+  },
+  stepItem: {
+    flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
-  dispatchedIcon: {
-    fontSize: 26,
-    marginTop: 2,
+  stepNumberBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
   },
-  dispatchedContent: {
+  stepNumberText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  stepContent: {
     flex: 1,
   },
-  dispatchedTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  dispatchedTitle: {
-    color: '#60A5FA',
+  stepTitle: {
+    color: '#F8FAFC',
     fontSize: 13,
     fontWeight: '700',
+    marginBottom: 2,
   },
-  changeEmailPill: {
-    backgroundColor: 'rgba(59, 130, 246, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.4)',
-  },
-  changeEmailPillText: {
-    color: '#93C5FD',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  dispatchedEmail: {
-    color: '#F8FAFC',
-    fontSize: 13.5,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  dispatchedNote: {
+  stepDesc: {
     color: '#94A3B8',
     fontSize: 12,
     lineHeight: 16,
   },
-  inAppResetNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.25)',
+  stepDivider: {
+    height: 1,
+    backgroundColor: '#1E293B',
+    marginVertical: 10,
+    marginLeft: 38,
+  },
+  openMailBtn: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  inAppResetIcon: {
-    fontSize: 18,
+  openMailBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  inAppResetTitle: {
+  resendSuccessBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  resendSuccessText: {
     color: '#34D399',
-    fontSize: 12.5,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  inAppResetDesc: {
-    color: '#CBD5E1',
     fontSize: 12,
-    lineHeight: 16,
+    fontWeight: '700',
+  },
+  resendRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+    minHeight: 36,
+  },
+  resendingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  resendingText: {
+    color: '#38BDF8',
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  cooldownBadge: {
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  cooldownText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  resendBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  resendLinkText: {
+    color: '#38BDF8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  changeEmailFooter: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  changeEmailFooterText: {
+    color: '#94A3B8',
+    fontSize: 12.5,
+  },
+  manualToggleContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#1E293B',
+    paddingTop: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  manualToggleBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  manualToggleText: {
+    color: '#64748B',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  manualCard: {
+    backgroundColor: '#0B1120',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
   },
   codeCard: {
     backgroundColor: 'rgba(37, 99, 235, 0.15)',
     borderWidth: 1.5,
     borderColor: '#3B82F6',
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 18,
+    padding: 14,
+    marginBottom: 16,
     alignItems: 'center',
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   codeCardHeader: {
     flexDirection: 'row',
@@ -838,7 +1074,6 @@ const styles = StyleSheet.create({
     color: '#93C5FD',
     fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.3,
   },
   copyBtn: {
     backgroundColor: 'rgba(59, 130, 246, 0.25)',
@@ -855,7 +1090,7 @@ const styles = StyleSheet.create({
   },
   codeCardNumber: {
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '800',
     color: '#38BDF8',
     letterSpacing: 6,
@@ -891,9 +1126,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   codeInput: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
-    letterSpacing: 6,
+    letterSpacing: 4,
     color: '#38BDF8',
     textAlign: 'center',
   },
@@ -914,73 +1149,7 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontWeight: '600',
   },
-  resendSuccessBadge: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  resendSuccessText: {
-    color: '#34D399',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  resendRow: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-    marginBottom: 8,
-    minHeight: 36,
-  },
-  resendingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  resendingText: {
-    color: '#38BDF8',
-    fontSize: 12.5,
-    fontWeight: '600',
-  },
-  cooldownBadge: {
-    backgroundColor: 'rgba(30, 41, 59, 0.5)',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#334155',
-  },
-  cooldownText: {
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  resendBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  resendLinkText: {
-    color: '#38BDF8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  changeEmailFooter: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  changeEmailFooterText: {
-    color: '#94A3B8',
-    fontSize: 12.5,
-  },
+  // Step 3: Success Screen
   successIconCircle: {
     width: 76,
     height: 76,

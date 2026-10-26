@@ -53,11 +53,18 @@ export const forgotPasswordSchema = z.object({
     .min(1, 'Please enter your email, username, or phone number'),
 });
 
-export const resetPasswordSchema = z.object({
-  tokenOrCode: z.string().trim().min(6, 'Reset token or 6-digit verification code is required'),
-  newPassword: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-});
+export const resetPasswordSchema = z
+  .object({
+    tokenOrCode: z.string().trim().min(6).optional(),
+    token: z.string().trim().min(6).optional(),
+    code: z.string().trim().min(6).optional(),
+    newPassword: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+  })
+  .refine((data) => Boolean(data.tokenOrCode || data.token || data.code), {
+    message: 'Reset token or verification code is required',
+    path: ['tokenOrCode'],
+  });

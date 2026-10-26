@@ -456,11 +456,11 @@ export class AuthService {
       };
     }
 
-    // Invalidate any previous unconsumed reset tokens for this user
+    // Clean up only expired tokens for this user so unexpired tokens remain valid
     await prisma.passwordResetToken.updateMany({
       where: {
         userId: user.id,
-        isUsed: false,
+        expiresAt: { lt: new Date() },
       },
       data: { isUsed: true },
     });
@@ -471,8 +471,8 @@ export class AuthService {
     const tokenHash = hashToken(rawToken);
     const codeHash = hashToken(rawCode);
 
-    // Valid for 15 minutes
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    // Valid for 2 hours (120 minutes) so users have reliable, persistent access
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
     await prisma.passwordResetToken.create({
       data: {
@@ -519,18 +519,20 @@ export class AuthService {
       return `${first}${asterisks}${domain}`;
     });
 
+    const isEmailSent = Boolean(emailResult.success);
+
     return {
       success: true,
-      message: hasLiveEmail
-        ? `Password reset link and verification code have been dispatched to your email address (${maskedEmail}).`
-        : `Password reset verification code generated for ${maskedEmail}. Use the 6-digit code below to set your new password.`,
+      message: isEmailSent
+        ? `A secure password reset link has been dispatched to your email address (${maskedEmail}). Please check your inbox and tap the link to reset your password.`
+        : `Password reset verification code generated for ${maskedEmail}.`,
       email: user.email,
       maskedEmail,
       username: user.username,
-      verificationCode: rawCode,
-      resetUrl,
+      verificationCode: isEmailSent ? undefined : rawCode,
+      resetUrl: isEmailSent ? undefined : resetUrl,
       previewUrl: emailResult.previewUrl || undefined,
-      isLiveEmailSent: hasLiveEmail,
+      isLiveEmailSent: isEmailSent,
     };
   }
 
@@ -603,8 +605,8 @@ export class AuthService {
         where: { id: record.userId },
         data: { passwordHash },
       }),
-      prisma.passwordResetToken.update({
-        where: { id: record.id },
+      prisma.passwordResetToken.updateMany({
+        where: { userId: record.userId },
         data: { isUsed: true },
       }),
       prisma.refreshToken.updateMany({
