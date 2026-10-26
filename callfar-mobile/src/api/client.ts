@@ -12,9 +12,11 @@ import { Platform } from 'react-native';
  */
 export const PRIMARY_HOST = process.env.EXPO_PUBLIC_SERVER_URL || '172.23.224.248';
 export const FALLBACK_HOST = 'localhost';
+export const DEFAULT_CLOUD_URL = 'https://callfar-backend.onrender.com';
 
 export const CANDIDATE_HOSTS = [
   PRIMARY_HOST,
+  DEFAULT_CLOUD_URL,
   FALLBACK_HOST,
   '192.168.43.1', // Android Wi-Fi hotspot gateway
   '10.0.2.2',     // Android emulator gateway
@@ -167,7 +169,10 @@ AsyncStorage.getItem('callfar_server_host').then((saved) => {
 export const probeHost = async (host: string, timeoutMs = 2000): Promise<boolean> => {
   try {
     const healthUrl = getHealthUrl(host);
-    const res = await axios.get(healthUrl, { timeout: timeoutMs });
+    const isCloud = isCloudServer(host);
+    // Cloud servers may experience cold-start wake-up or TLS handshake; allow sufficient timeout
+    const effectiveTimeout = isCloud && timeoutMs < 7000 ? 7000 : timeoutMs;
+    const res = await axios.get(healthUrl, { timeout: effectiveTimeout });
     return res.data?.status === 'UP' || res.data?.status === 'DEGRADED';
   } catch {
     return false;

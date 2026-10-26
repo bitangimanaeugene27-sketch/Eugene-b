@@ -26,13 +26,22 @@ export const RegisterScreen = ({ navigation, route }: any) => {
 
   const [role, setRole] = useState<RegisterRole>(initialRole);
   const [fullName, setFullName] = useState('');
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState(route?.params?.prefillUsername || '');
+  const [email, setEmail] = useState(route?.params?.prefillEmail || '');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [adminPasscode, setAdminPasscode] = useState('');
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (route?.params?.prefillEmail) {
+      setEmail(route.params.prefillEmail);
+    }
+    if (route?.params?.prefillUsername) {
+      setUsername(route.params.prefillUsername);
+    }
+  }, [route?.params?.prefillEmail, route?.params?.prefillUsername]);
 
   const isAdminRole = role === 'ADMIN';
 

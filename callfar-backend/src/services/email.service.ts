@@ -1,4 +1,4 @@
-import nodemailer, { type Transporter } from 'nodemailer';
+import nodemailer, { type Transporter, type SendMailOptions } from 'nodemailer';
 import { ENV } from '../config/env.js';
 
 export interface SendPasswordResetOptions {
@@ -259,7 +259,7 @@ Ultra High-Definition Voice, Video & Encrypted Messaging
 
     try {
       const transporter = await this.getTransporter();
-      const mailOptions: nodemailer.SendMailOptions = {
+      const mailOptions: SendMailOptions = {
         from: ENV.EMAIL_FROM || `CallFar Security <${ENV.SMTP_USER}>`,
         to,
         subject: '🔒 Reset Your CallFar Password',

@@ -19,6 +19,9 @@ import {
   getLanPeers,
   probeHost,
   CANDIDATE_HOSTS,
+  isCloudServer,
+  DEFAULT_CLOUD_URL,
+  normalizeServerTarget,
 } from '../../api/client';
 import { THEME } from '../../styles/theme';
 import { Avatar } from './Avatar';
@@ -91,14 +94,20 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
   const handleSelectPreset = async (host: string) => {
     try {
       setConnectingHost(true);
-      const alive = await probeHost(host, 2000);
+      const isCloud = isCloudServer(host);
+      const alive = await probeHost(host, isCloud ? 7000 : 2000);
       if (!alive) {
-        Alert.alert('Host Unreachable', `Cannot connect to server at ${host}:5000. Make sure the server is running on this IP.`);
+        Alert.alert(
+          'Host Unreachable',
+          isCloud
+            ? `Cannot connect to online cloud server at ${host}. Make sure the server is awake and reachable.`
+            : `Cannot connect to server at ${host}:5000. Make sure the server is running on this IP.`
+        );
         return;
       }
       await switchActiveHost(host, true);
       reconnectSocket();
-      Alert.alert('Connected', `Successfully switched active host to ${host}:5000`);
+      Alert.alert('Connected', `Successfully switched active host to ${isCloud ? host : `${host}:5000`}`);
       fetchLanPeers();
     } finally {
       setConnectingHost(false);
@@ -106,26 +115,35 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
   };
 
   const handleCustomConnect = async () => {
-    const trimmed = customHost.trim().replace('http://', '').replace('https://', '').split(':')[0];
-    if (!trimmed) {
-      Alert.alert('Required', 'Please enter a valid IP address or hostname.');
+    const raw = customHost.trim();
+    if (!raw) {
+      Alert.alert('Required', 'Please enter a valid IP address or server URL.');
       return;
     }
 
+    const clean = raw.startsWith('http://') || raw.startsWith('https://')
+      ? raw
+      : raw.includes('.') && !/^[0-9.]+$/.test(raw)
+      ? `https://${raw}`
+      : raw.replace(/^https?:\/\//, '').replace(/:[0-9]+$/, '');
+
     try {
       setConnectingHost(true);
-      const alive = await probeHost(trimmed, 2500);
+      const isCloud = isCloudServer(clean);
+      const alive = await probeHost(clean, isCloud ? 7000 : 2500);
       if (!alive) {
         Alert.alert(
           'Connection Failed',
-          `Cannot reach ${trimmed}:5000. Ensure both devices are on the same Wi-Fi or Hotspot.`
+          isCloud
+            ? `Cannot reach cloud server at ${clean}. Check URL or online status.`
+            : `Cannot reach ${clean}:5000. Ensure both devices are on the same Wi-Fi or Hotspot.`
         );
         return;
       }
-      await switchActiveHost(trimmed, true);
+      await switchActiveHost(clean, true);
       setCustomHost('');
       reconnectSocket();
-      Alert.alert('Connected', `Switched active server host to ${trimmed}:5000`);
+      Alert.alert('Connected', `Switched active server host to ${isCloud ? clean : `${clean}:5000`}`);
       fetchLanPeers();
     } finally {
       setConnectingHost(false);
@@ -224,7 +242,9 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
                 <View style={styles.statCol}>
                   <Text style={styles.statLabel}>Active Server</Text>
                   <Text style={styles.statVal} numberOfLines={1}>
-                    {activeHost}:5000
+                    {normalizeServerTarget(activeHost).isCloud
+                      ? `🌐 ${normalizeServerTarget(activeHost).displayHost}`
+                      : `🏠 ${normalizeServerTarget(activeHost).displayHost}:5000`}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -329,7 +349,13 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
               {/* Candidate Presets */}
               <Text style={styles.presetLabel}>Quick Connect Presets:</Text>
               <View style={styles.presetRow}>
-                {CANDIDATE_HOSTS.slice(0, 4).map((host) => {
+                {[
+                  DEFAULT_CLOUD_URL,
+                  '172.23.224.248',
+                  'localhost',
+                  '192.168.43.1',
+                  '10.0.2.2',
+                ].map((host) => {
                   const isActive = activeHost === host;
                   return (
                     <TouchableOpacity
@@ -345,7 +371,11 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
                           isActive && styles.presetChipTextActive,
                         ]}
                       >
-                        {host === 'localhost'
+                        {host === DEFAULT_CLOUD_URL
+                          ? '🌐 Cloud (Render)'
+                          : host === '172.23.224.248'
+                          ? '🏠 Wi-Fi LAN'
+                          : host === 'localhost'
                           ? '🔌 USB (localhost)'
                           : host === '192.168.43.1'
                           ? '📱 Hotspot'
@@ -360,18 +390,17 @@ export const NetworkManagerModal: React.FC<NetworkManagerModalProps> = ({
 
               {/* Manual Custom IP Input */}
               <Text style={[styles.presetLabel, { marginTop: 14 }]}>
-                Connect to Custom Server IP / Friend's Host:
+                Connect to Custom Server IP / Online Cloud URL:
               </Text>
               <View style={styles.customInputRow}>
                 <TextInput
                   style={styles.customInput}
                   value={customHost}
                   onChangeText={setCustomHost}
-                  placeholder="e.g. 192.168.1.100 or 172.23.224.248"
+                  placeholder="e.g. https://... or 172.23.224.248"
                   placeholderTextColor="#64748B"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType="numbers-and-punctuation"
                 />
                 <TouchableOpacity
                   style={styles.connectBtn}

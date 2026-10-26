@@ -48,6 +48,25 @@ export class UserController {
     }
   }
 
+  static async changeEmail(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const { newEmail, password } = req.body;
+      if (!newEmail || !password) {
+        res.status(400).json({ success: false, message: 'newEmail and password are required.' });
+        return;
+      }
+      const updatedUser = await UserService.changeEmail(userId, newEmail, password);
+      res.status(200).json({
+        success: true,
+        message: 'Email address updated successfully.',
+        data: updatedUser,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async deleteAccount(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = req.user!.userId;

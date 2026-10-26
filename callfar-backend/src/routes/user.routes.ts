@@ -10,6 +10,7 @@ router.get('/profile', UserController.getProfile);
 router.patch('/profile', UserController.updateProfile);
 router.patch('/settings', UserController.updateSettings);
 router.patch('/password', UserController.changePassword);
+router.patch('/email', UserController.changeEmail);
 router.delete('/account', UserController.deleteAccount);
 router.get('/search', UserController.searchUsers);
 

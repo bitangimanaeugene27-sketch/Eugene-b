@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma.js';
 import { comparePassword, hashPassword } from '../utils/crypto.js';
 import { NetworkService } from './network.service.js';
+import { EMAIL_REGEX } from '../validations/auth.validation.js';
 
 export class UserService {
   static async getProfile(userId: string) {
@@ -244,5 +245,50 @@ export class UserService {
         ? 'SAME_NETWORK_LAN'
         : 'REMOTE_NETWORK_WAN',
     }));
+  }
+
+  /**
+   * Update authenticated user's registered email address
+   */
+  static async changeEmail(userId: string, newEmail: string, password: string) {
+    const normalized = (newEmail || '').toLowerCase().trim();
+    if (!EMAIL_REGEX.test(normalized)) {
+      throw { statusCode: 400, message: 'Please provide a valid, complete email address (e.g. user@example.com).' };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw { statusCode: 404, message: 'User not found.' };
+    }
+
+    const isValidPassword = await comparePassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      throw { statusCode: 401, message: 'Current password is incorrect. Please verify your password.' };
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { email: normalized },
+    });
+
+    if (existing && existing.id !== userId) {
+      throw { statusCode: 409, message: `The email "${normalized}" is already linked to another CallFar account.` };
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { email: normalized },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        phoneNumber: true,
+        role: true,
+      },
+    });
+
+    return updated;
   }
 }

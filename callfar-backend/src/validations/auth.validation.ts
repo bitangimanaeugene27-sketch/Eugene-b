@@ -50,9 +50,7 @@ export const forgotPasswordSchema = z.object({
   email: z
     .string()
     .trim()
-    .toLowerCase()
-    .email('Invalid email address format')
-    .regex(EMAIL_REGEX, 'Please enter a valid email address with a valid domain (e.g. user@example.com)'),
+    .min(1, 'Please enter your email, username, or phone number'),
 });
 
 export const resetPasswordSchema = z.object({

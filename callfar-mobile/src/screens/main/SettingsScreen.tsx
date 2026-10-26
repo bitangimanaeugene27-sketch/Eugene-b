@@ -23,6 +23,7 @@ import {
   switchActiveHost,
   probeHost,
   isCloudServer,
+  DEFAULT_CLOUD_URL,
 } from '../../api/client';
 import { THEME } from '../../styles/theme';
 import { Avatar } from '../../components/common/Avatar';
@@ -850,10 +851,10 @@ const ServerConfigModal = ({
                 modalStyles.choiceRow,
                 { flex: 1, minWidth: 100, marginBottom: 0, paddingVertical: 8, justifyContent: 'center' },
               ]}
-              onPress={() => setHostInput('https://')}
+              onPress={() => setHostInput(DEFAULT_CLOUD_URL)}
             >
               <Text style={{ color: THEME.colors.primaryLight, fontSize: 13, fontWeight: '600' }}>
-                🌐 Cloud HTTPS
+                🌐 Cloud (Render)
               </Text>
             </TouchableOpacity>
           </View>

@@ -422,25 +422,37 @@ export class AuthService {
   }
 
   /**
-   * Request password reset link and verification code for a registered email
+   * Request password reset link and verification code for a registered user (by email, username, or phone)
    */
-  static async forgotPassword(email: string, clientBaseUrl?: string) {
-    const normalizedEmail = email.toLowerCase().trim();
+  static async forgotPassword(identifier: string, clientBaseUrl?: string) {
+    const raw = (identifier || '').trim();
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      throw { statusCode: 400, message: 'Please provide a valid email address.' };
+    if (!raw) {
+      throw { statusCode: 400, message: 'Please enter your email address, username, or phone number.' };
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const normalized = raw.toLowerCase();
+
+    // Find account by email, username, or phone number
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: normalized, mode: 'insensitive' } },
+          { username: { equals: normalized, mode: 'insensitive' } },
+          { phoneNumber: { equals: raw } },
+        ],
+      },
       include: { profile: true },
     });
 
-    // If account not found, inform the user clearly so they know to register first
+    // If account not found, inform the user clearly and allow 1-tap registration
     if (!user) {
       throw {
         statusCode: 404,
-        message: `No CallFar account found with email "${normalizedEmail}". Please check your email or create an account first.`,
+        errorCode: 'ACCOUNT_NOT_FOUND',
+        message: `No CallFar account found matching "${raw}". You can create a new account in just a few seconds.`,
+        canRegister: true,
+        identifier: raw,
       };
     }
 
@@ -489,12 +501,20 @@ export class AuthService {
 
     const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
 
+    // Mask recipient email (e.g. b***27@gmail.com)
+    const maskedEmail = user.email.replace(/^(.)(.*)(@.*)$/, (_, first, middle, domain) => {
+      const asterisks = '*'.repeat(Math.max(1, Math.min(middle.length, 5)));
+      return `${first}${asterisks}${domain}`;
+    });
+
     return {
       success: true,
       message: hasLiveEmail && emailResult.success
-        ? 'Password reset link and verification code have been dispatched to your email address.'
-        : 'Password reset verification code generated. Use the 6-digit code below to set your new password.',
+        ? `Password reset link and verification code have been dispatched to your email address (${maskedEmail}).`
+        : `Password reset verification code generated for ${maskedEmail}. Use the 6-digit code below to set your new password.`,
       email: user.email,
+      maskedEmail,
+      username: user.username,
       verificationCode: rawCode,
       resetUrl,
       previewUrl: emailResult.previewUrl || undefined,

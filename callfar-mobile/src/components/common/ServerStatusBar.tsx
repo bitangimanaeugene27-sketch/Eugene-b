@@ -16,6 +16,7 @@ import {
   onHostChange,
   isCloudServer,
   normalizeServerTarget,
+  DEFAULT_CLOUD_URL,
 } from '../../api/client';
 import { THEME } from '../../styles/theme';
 
@@ -28,7 +29,7 @@ export const ServerStatusBar = () => {
 
   // Check connection status
   const checkStatus = async (hostToTest = activeHost) => {
-    const alive = await probeHost(hostToTest, 2000);
+    const alive = await probeHost(hostToTest, isCloudServer(hostToTest) ? 6000 : 2000);
     setIsOnline(alive);
   };
 
@@ -89,7 +90,8 @@ export const ServerStatusBar = () => {
       : raw.replace(/^https?:\/\//, '').replace(/:[0-9]+$/, '');
 
     setScanning(true);
-    const alive = await probeHost(clean, 2500);
+    const isCloud = isCloudServer(clean);
+    const alive = await probeHost(clean, isCloud ? 8000 : 3000);
     setScanning(false);
 
     if (alive) {
@@ -167,10 +169,10 @@ export const ServerStatusBar = () => {
           <View style={styles.quickPresetRow}>
             <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => setCustomIp('https://')}
+              onPress={() => setCustomIp(DEFAULT_CLOUD_URL)}
               activeOpacity={0.8}
             >
-              <Text style={styles.presetChipText}>🌐 Cloud HTTPS</Text>
+              <Text style={styles.presetChipText}>🌐 Cloud (Render)</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.presetChip}
