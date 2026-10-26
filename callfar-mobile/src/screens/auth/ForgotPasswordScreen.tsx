@@ -165,10 +165,13 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const handleResetPassword = async () => {
     let effectiveTokenOrCode = verificationCode.trim();
 
-    // If user pasted a full reset link (e.g. https://.../reset-password-page?token=abc...)
-    const tokenMatch = effectiveTokenOrCode.match(/[?&]token=([a-f0-9]+)/i);
+    // If user pasted a full reset link (e.g. https://.../reset-password?token=abc...)
+    const tokenMatch = effectiveTokenOrCode.match(/[?&](?:token|code|t)=([a-f0-9]+)/i);
     if (tokenMatch) {
       effectiveTokenOrCode = tokenMatch[1];
+    } else if (effectiveTokenOrCode.includes('token=')) {
+      const parts = effectiveTokenOrCode.split('token=');
+      effectiveTokenOrCode = (parts[1] || '').split('&')[0];
     }
 
     if (!effectiveTokenOrCode) {

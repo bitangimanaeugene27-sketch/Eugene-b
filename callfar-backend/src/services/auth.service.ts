@@ -487,13 +487,14 @@ export class AuthService {
     // For email deliverability and global accessibility, ALWAYS use the official public HTTPS domain
     // so Gmail and mobile browsers accept the link worldwide without local IP or cleartext HTTP blocks
     const publicCloudDomain = 'https://callfar-backend.onrender.com';
-    const effectiveBaseUrl = (ENV.APP_URL && ENV.APP_URL.startsWith('https://'))
+    const effectiveBaseUrl = (ENV.APP_URL && ENV.APP_URL.startsWith('https://') && !ENV.APP_URL.includes('localhost'))
       ? ENV.APP_URL
-      : (clientBaseUrl && clientBaseUrl.startsWith('https://'))
+      : (clientBaseUrl && clientBaseUrl.startsWith('https://') && !clientBaseUrl.includes('localhost'))
         ? clientBaseUrl
         : publicCloudDomain;
 
-    const resetUrl = `${effectiveBaseUrl}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
+    // Clean, professional user-facing reset URL (not raw API path)
+    const resetUrl = `${effectiveBaseUrl}/reset-password?token=${rawToken}`;
 
     const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
 

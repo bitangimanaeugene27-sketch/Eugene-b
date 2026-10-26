@@ -151,19 +151,25 @@ export class EmailService {
                     <!-- Option 1: 1-Tap Reset Link Button -->
                     <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 14px; padding: 22px; margin-bottom: 24px; text-align: center;">
                       <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #60A5FA; margin-bottom: 14px;">
-                        Option 1 &bull; 1-Tap Web Password Reset
+                        Option 1 &bull; Direct Web Password Reset
                       </div>
-                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin: 0 auto;">
+                      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 auto;">
                         <tr>
-                          <td align="center" style="border-radius: 12px; background: linear-gradient(135deg, #2563EB 0%, #0284C7 100%); box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);">
-                            <a href="${resetUrl}" target="_blank" style="display: inline-block; padding: 15px 36px; font-size: 15.5px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; letter-spacing: 0.3px;">
-                              🔐 Reset My Password Now &rarr;
-                            </a>
+                          <td align="center">
+                            <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                              <tr>
+                                <td align="center" style="border-radius: 12px; background-color: #2563EB;">
+                                  <a href="${resetUrl}" target="_blank" rel="noopener noreferrer" style="display: block; padding: 16px 44px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #2563EB; letter-spacing: 0.3px; text-align: center;">
+                                    Reset Password
+                                  </a>
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                       </table>
-                      <div style="margin-top: 14px; font-size: 12px; color: #64748B;">
-                        Clicking this opens our encrypted password reset page in your browser.
+                      <div style="margin-top: 14px; font-size: 12px; color: #94A3B8;">
+                        Clicking above opens the secure CallFar password reset page in your browser.
                       </div>
                     </div>
 
@@ -180,17 +186,17 @@ export class EmailService {
                       </div>
                       <div style="margin-top: 10px;">
                         <span style="display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #FBBF24; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
-                          ⏱️ Code & link expire in 15 minutes
+                          Code &amp; link expire in 15 minutes
                         </span>
                       </div>
                     </div>
 
                     <!-- Direct URL Backup Box -->
                     <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: 0.5px;">
-                      Button not working? Copy and paste this URL into your browser:
+                      Direct Link (Copy and paste into your browser):
                     </p>
-                    <div style="background: #0B1120; border: 1px solid #1E293B; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 12px; color: #38BDF8; word-break: break-all; margin-bottom: 26px;">
-                      <a href="${resetUrl}" target="_blank" style="color: #38BDF8; text-decoration: underline;">
+                    <div style="background: #0B1120; border: 1px solid #1E293B; border-radius: 8px; padding: 12px 14px; word-break: break-all; margin-bottom: 24px;">
+                      <a href="${resetUrl}" target="_blank" rel="noopener noreferrer" style="color: #38BDF8; text-decoration: underline; font-family: monospace; font-size: 13px; line-height: 1.5;">
                         ${resetUrl}
                       </a>
                     </div>
@@ -198,11 +204,11 @@ export class EmailService {
                     <!-- Security Notice Box -->
                     <div style="background: rgba(15, 23, 42, 0.6); border-left: 3px solid #3B82F6; border-radius: 0 10px 10px 0; padding: 14px 16px; margin-bottom: 10px;">
                       <div style="font-size: 13px; font-weight: 700; color: #F1F5F9; margin-bottom: 4px;">
-                        🔒 Important Security Safeguards:
+                        Important Security Notice:
                       </div>
                       <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #94A3B8;">
                         <li>If you did not request this password reset, someone may have entered your email by mistake. Your account is <strong>completely safe</strong>, and no action is required.</li>
-                        <li>Never forward or share this link or verification code with anyone. CallFar staff will never ask for your password.</li>
+                        <li>Never share this link or verification code with anyone. CallFar staff will never ask for your password.</li>
                       </ul>
                     </div>
 
@@ -219,7 +225,7 @@ export class EmailService {
                 &copy; ${new Date().getFullYear()} CallFar Platform. All rights reserved.
               </p>
               <p style="margin: 0; font-size: 11px; color: #475569; line-height: 1.5;">
-                Protected by 256-Bit End-to-End Encryption &bull; Ultra HD Voice, Video & Messaging<br />
+                Protected by 256-Bit End-to-End Encryption &bull; Ultra HD Voice, Video &amp; Messaging<br />
                 Sent to <span style="color: #64748B;">${to}</span> as an essential security notification.
               </p>
             </td>
@@ -243,12 +249,12 @@ Hello ${recipientName},
 
 We received a request to reset the password for your CallFar account (@${username}).
 
-OPTION 1: 1-Tap Password Reset Link
+OPTION 1: Direct Web Password Reset
 Visit this secure link in your browser to set a new password:
 ${resetUrl}
 
 OPTION 2: In-App Verification Code
-If you are resetting directly in the CallFar mobile app, enter:
+If you are resetting directly in the CallFar mobile app, enter this 6-digit code:
 ${resetCode}
 
 SECURITY NOTICE:
@@ -264,18 +270,12 @@ Ultra High-Definition Voice, Video & Encrypted Messaging
     try {
       const transporter = await this.getTransporter();
       const mailOptions: SendMailOptions = {
-        from: ENV.EMAIL_FROM || `CallFar Security <${ENV.SMTP_USER}>`,
+        from: ENV.EMAIL_FROM || `"CallFar" <${ENV.SMTP_USER}>`,
+        replyTo: ENV.EMAIL_FROM || `"CallFar Support" <${ENV.SMTP_USER}>`,
         to,
-        subject: '🔒 Reset Your CallFar Password',
+        subject: 'Reset your CallFar password',
         text: plainText,
         html: htmlContent,
-        priority: 'high',
-        headers: {
-          'X-Priority': '1',
-          'X-MSMail-Priority': 'High',
-          'Importance': 'high',
-          'X-Mailer': 'CallFar Security Mailer v2.0',
-        },
       };
 
       const sendPromise = transporter.sendMail(mailOptions);

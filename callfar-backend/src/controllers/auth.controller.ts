@@ -135,7 +135,22 @@ export class AuthController {
    * Render an attractive, responsive web page for resetting password from email link
    */
   static async renderResetPasswordPage(req: Request, res: Response): Promise<void> {
-    const rawToken = (req.query.token as string) || '';
+    const rawToken = (((req.query.token || req.query.code || req.query.t || '') as string)).trim();
+
+    let tokenStatus: 'VALID' | 'EXPIRED' | 'MISSING' = 'MISSING';
+    let targetEmail = '';
+    let targetUsername = '';
+
+    if (rawToken) {
+      try {
+        const verifyResult = await AuthService.verifyResetToken(rawToken);
+        tokenStatus = 'VALID';
+        targetEmail = verifyResult.email || '';
+        targetUsername = verifyResult.username || '';
+      } catch {
+        tokenStatus = 'EXPIRED';
+      }
+    }
 
     const html = `
 <!DOCTYPE html>
@@ -143,7 +158,7 @@ export class AuthController {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Password - CallFar</title>
+  <title>Reset Password &bull; CallFar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -170,43 +185,43 @@ export class AuthController {
       top: -120px;
       left: 50%;
       transform: translateX(-50%);
-      width: 450px;
-      height: 450px;
-      background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, transparent 70%);
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.28) 0%, transparent 70%);
       pointer-events: none;
     }
     .bg-glow-2 {
       position: absolute;
       bottom: -100px;
       right: 10%;
-      width: 350px;
-      height: 350px;
-      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 70%);
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, transparent 70%);
       pointer-events: none;
     }
     .container {
       width: 100%;
       max-width: 460px;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.92);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 24px;
       padding: 40px 32px;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
       z-index: 10;
       position: relative;
     }
     .brand {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
     .brand-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: rgba(37, 99, 235, 0.18);
-      border: 1px solid rgba(59, 130, 246, 0.4);
+      border: 1px solid rgba(59, 130, 246, 0.45);
       padding: 6px 14px;
       border-radius: 999px;
       font-size: 12px;
@@ -217,7 +232,7 @@ export class AuthController {
       margin-bottom: 14px;
     }
     .brand h1 {
-      font-size: 30px;
+      font-size: 28px;
       font-weight: 800;
       background: linear-gradient(135deg, #FFFFFF 0%, #BAE6FD 100%);
       -webkit-background-clip: text;
@@ -227,7 +242,19 @@ export class AuthController {
     .brand p {
       font-size: 14px;
       color: #94A3B8;
-      margin-top: 6px;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .account-pill {
+      display: inline-block;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38BDF8;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 8px;
+      margin-top: 8px;
+      font-size: 13px;
     }
     .form-group {
       margin-bottom: 20px;
@@ -257,7 +284,7 @@ export class AuthController {
     }
     input:focus {
       border-color: #38BDF8;
-      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
     }
     .toggle-pwd {
       position: absolute;
@@ -311,6 +338,7 @@ export class AuthController {
       align-items: center;
       justify-content: center;
       gap: 8px;
+      text-decoration: none;
     }
     .btn:hover:not(:disabled) {
       transform: translateY(-2px);
@@ -319,6 +347,17 @@ export class AuthController {
     .btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #E2E8F0;
+      box-shadow: none;
+      margin-top: 12px;
+    }
+    .btn-secondary:hover {
+      background: #334155;
+      color: #FFFFFF;
     }
     .alert {
       padding: 14px 16px;
@@ -338,33 +377,35 @@ export class AuthController {
       border: 1px solid rgba(16, 185, 129, 0.35);
       color: #6EE7B7;
     }
-    .success-card {
-      display: none;
+    .card-state {
       text-align: center;
-      padding: 20px 0;
+      padding: 16px 0;
     }
-    .success-icon {
+    .card-icon {
       width: 72px;
       height: 72px;
       border-radius: 50%;
-      background: rgba(16, 185, 129, 0.15);
-      border: 2px solid #10B981;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 36px;
-      margin: 0 auto 20px;
+      font-size: 34px;
+      margin: 0 auto 18px;
+    }
+    .icon-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 2px solid #10B981;
+      color: #10B981;
+    }
+    .icon-warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 2px solid #F59E0B;
+      color: #F59E0B;
     }
     .footer-links {
       text-align: center;
-      margin-top: 24px;
-      font-size: 13px;
+      margin-top: 26px;
+      font-size: 12px;
       color: #64748B;
-    }
-    .footer-links a {
-      color: #38BDF8;
-      text-decoration: none;
-      font-weight: 600;
     }
   </style>
 </head>
@@ -374,67 +415,97 @@ export class AuthController {
 
   <div class="container">
     <div class="brand">
-      <div class="brand-badge">🔒 CallFar Security</div>
-      <h1>Reset Password</h1>
-      <p id="pageSubtitle">Choose a new, secure password for your account</p>
+      <div class="brand-badge">CallFar Security</div>
+      <h1>${tokenStatus === 'VALID' ? 'Reset Password' : 'Password Recovery'}</h1>
+      ${tokenStatus === 'VALID' && targetUsername ? `
+        <p>Choose a new password for your CallFar account</p>
+        <div class="account-pill">@${targetUsername}</div>
+      ` : ''}
     </div>
 
     <div id="alertBox" class="alert"></div>
 
-    <form id="resetForm" onsubmit="handleReset(event)">
-      <div class="form-group">
-        <label for="newPassword">New Password</label>
-        <div class="input-wrapper">
-          <input
-            type="password"
-            id="newPassword"
-            placeholder="At least 8 characters, 1 uppercase, 1 number"
-            required
-            oninput="validateRules()"
-          />
-          <button type="button" class="toggle-pwd" onclick="toggleVisibility('newPassword', this)" title="Show/Hide Password">👁️</button>
+    ${tokenStatus === 'EXPIRED' ? `
+      <!-- Expired or Invalid Link Card -->
+      <div class="card-state">
+        <div class="card-icon icon-warning">⏱️</div>
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 10px;">Link Expired or Already Used</h2>
+        <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+          For your account security, CallFar password reset links are only valid for 15 minutes and can only be used once.
+        </p>
+        <a href="callfar://forgot-password" class="btn">
+          Open CallFar App to Request New Code
+        </a>
+      </div>
+    ` : tokenStatus === 'MISSING' ? `
+      <!-- Missing Token Card -->
+      <div class="card-state">
+        <div class="card-icon icon-warning">🔑</div>
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 10px;">Reset Link Required</h2>
+        <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+          Please click the direct link provided in your CallFar password reset email, or enter your 6-digit verification code directly inside the mobile app.
+        </p>
+        <a href="callfar://forgot-password" class="btn">
+          Open CallFar App
+        </a>
+      </div>
+    ` : `
+      <!-- Valid Active Reset Form -->
+      <form id="resetForm" onsubmit="handleReset(event)">
+        <div class="form-group">
+          <label for="newPassword">New Password</label>
+          <div class="input-wrapper">
+            <input
+              type="password"
+              id="newPassword"
+              placeholder="Min 8 characters, 1 uppercase, 1 number"
+              required
+              oninput="validateRules()"
+            />
+            <button type="button" class="toggle-pwd" onclick="toggleVisibility('newPassword', this)" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label for="confirmPassword">Confirm Password</label>
-        <div class="input-wrapper">
-          <input
-            type="password"
-            id="confirmPassword"
-            placeholder="Re-enter your new password"
-            required
-            oninput="validateRules()"
-          />
-          <button type="button" class="toggle-pwd" onclick="toggleVisibility('confirmPassword', this)" title="Show/Hide Password">👁️</button>
+        <div class="form-group">
+          <label for="confirmPassword">Confirm Password</label>
+          <div class="input-wrapper">
+            <input
+              type="password"
+              id="confirmPassword"
+              placeholder="Re-enter your new password"
+              required
+              oninput="validateRules()"
+            />
+            <button type="button" class="toggle-pwd" onclick="toggleVisibility('confirmPassword', this)" title="Show/Hide Password">👁️</button>
+          </div>
         </div>
+
+        <div class="requirements">
+          <div id="reqLen" class="req-item"><span>○</span> At least 8 characters</div>
+          <div id="reqUpper" class="req-item"><span>○</span> At least one uppercase letter (A-Z)</div>
+          <div id="reqNum" class="req-item"><span>○</span> At least one number (0-9)</div>
+          <div id="reqMatch" class="req-item"><span>○</span> Passwords match</div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn">
+          <span>Save New Password &rarr;</span>
+        </button>
+      </form>
+
+      <div id="successCard" class="card-state" style="display: none;">
+        <div class="card-icon icon-success">✓</div>
+        <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Password Updated!</h2>
+        <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+          Your password has been securely reset. You can now open CallFar and log in with your updated credentials.
+        </p>
+        <a href="callfar://login" class="btn">
+          Open CallFar App
+        </a>
       </div>
-
-      <div class="requirements">
-        <div id="reqLen" class="req-item"><span>○</span> At least 8 characters</div>
-        <div id="reqUpper" class="req-item"><span>○</span> At least one uppercase letter (A-Z)</div>
-        <div id="reqNum" class="req-item"><span>○</span> At least one number (0-9)</div>
-        <div id="reqMatch" class="req-item"><span>○</span> Passwords match</div>
-      </div>
-
-      <button type="submit" id="submitBtn" class="btn">
-        <span>Save New Password &rarr;</span>
-      </button>
-    </form>
-
-    <div id="successCard" class="success-card">
-      <div class="success-icon">✓</div>
-      <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">Password Updated!</h2>
-      <p style="color: #94A3B8; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-        Your password has been securely reset. You can now open CallFar and log in with your updated credentials.
-      </p>
-      <a href="callfar://login" class="btn" style="text-decoration: none; display: inline-flex;">
-        Open CallFar App
-      </a>
-    </div>
+    `}
 
     <div class="footer-links">
-      CallFar Platform &bull; End-to-End Encrypted VoIP
+      CallFar Platform &bull; End-to-End Encrypted VoIP &bull; All Rights Reserved
     </div>
   </div>
 
@@ -443,6 +514,7 @@ export class AuthController {
 
     function toggleVisibility(inputId, btn) {
       const input = document.getElementById(inputId);
+      if (!input) return;
       if (input.type === 'password') {
         input.type = 'text';
         btn.textContent = '🙈';
@@ -453,13 +525,17 @@ export class AuthController {
     }
 
     function validateRules() {
-      const pwd = document.getElementById('newPassword').value;
-      const confirm = document.getElementById('confirmPassword').value;
+      const pwdEl = document.getElementById('newPassword');
+      const confirmEl = document.getElementById('confirmPassword');
+      if (!pwdEl || !confirmEl) return false;
+
+      const pwd = pwdEl.value;
+      const confirm = confirmEl.value;
 
       const hasLen = pwd.length >= 8;
       const hasUpper = /[A-Z]/.test(pwd);
       const hasNum = /[0-9]/.test(pwd);
-      const matches = pwd && pwd === confirm;
+      const matches = Boolean(pwd) && pwd === confirm;
 
       updateReq('reqLen', hasLen);
       updateReq('reqUpper', hasUpper);
@@ -471,6 +547,7 @@ export class AuthController {
 
     function updateReq(id, valid) {
       const el = document.getElementById(id);
+      if (!el) return;
       if (valid) {
         el.className = 'req-item valid';
         el.querySelector('span').textContent = '●';
@@ -482,6 +559,7 @@ export class AuthController {
 
     function showAlert(msg, isError) {
       const alert = document.getElementById('alertBox');
+      if (!alert) return;
       alert.textContent = msg;
       alert.className = isError ? 'alert alert-error' : 'alert alert-success';
       alert.style.display = 'block';
@@ -494,12 +572,12 @@ export class AuthController {
       const submitBtn = document.getElementById('submitBtn');
 
       if (!token) {
-        showAlert('Reset token is missing from the link. Please check the email link or request a new one.', true);
+        showAlert('Reset token is missing. Please click the link directly from your password reset email.', true);
         return;
       }
 
       if (!validateRules()) {
-        showAlert('Please make sure your password satisfies all requirements and passwords match.', true);
+        showAlert('Please make sure your password satisfies all requirements and both passwords match.', true);
         return;
       }
 
@@ -507,7 +585,8 @@ export class AuthController {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span>Updating Password...</span>';
 
-        const res = await fetch('/api/v1/auth/reset-password', {
+        const apiUrl = window.location.origin + '/api/v1/auth/reset-password';
+        const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tokenOrCode: token, newPassword: pwd })
@@ -519,20 +598,14 @@ export class AuthController {
         }
 
         document.getElementById('resetForm').style.display = 'none';
-        document.getElementById('alertBox').style.display = 'none';
-        document.getElementById('pageSubtitle').style.display = 'none';
+        const alertBox = document.getElementById('alertBox');
+        if (alertBox) alertBox.style.display = 'none';
         document.getElementById('successCard').style.display = 'block';
       } catch (err) {
         showAlert(err.message, true);
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span>Save New Password &rarr;</span>';
       }
-    }
-
-    // Check token existence on load
-    if (!token) {
-      showAlert('No reset token found in URL. Please click the link directly from your password reset email.', true);
-      document.getElementById('submitBtn').disabled = true;
     }
   </script>
 </body>

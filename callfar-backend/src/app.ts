@@ -21,8 +21,14 @@ import licenseRoutes from './routes/license.routes.js';
 import pstnRoutes from './routes/pstn.routes.js';
 import networkRoutes from './routes/network.routes.js';
 
+import { AuthController } from './controllers/auth.controller.js';
+
 export function createApp() {
   const app = express();
+
+  // Top-level direct web password reset handlers for universal access
+  app.get('/reset-password', AuthController.renderResetPasswordPage);
+  app.get('/reset-password-page', AuthController.renderResetPasswordPage);
 
   // Security & HTTP Headers
   app.use(

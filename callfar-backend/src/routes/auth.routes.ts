@@ -24,6 +24,7 @@ router.post('/elevate-admin', requireAuth, validateBody(elevateAdminSchema), Aut
 router.post('/forgot-password', validateBody(forgotPasswordSchema), AuthController.forgotPassword);
 router.get('/verify-reset-token', AuthController.verifyResetToken);
 router.post('/reset-password', validateBody(resetPasswordSchema), AuthController.resetPassword);
+router.get('/reset-password', AuthController.renderResetPasswordPage);
 router.get('/reset-password-page', AuthController.renderResetPasswordPage);
 
 export default router;
