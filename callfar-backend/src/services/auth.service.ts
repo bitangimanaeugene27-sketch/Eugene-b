@@ -498,30 +498,19 @@ export class AuthService {
 
     const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
 
-    // Dispatch email with a fast 1200ms window so mobile clients get an immediate response (< 1.2s)
-    // while the email continues sending in the background without blocking or timing out
-    const emailPromise = EmailService.sendPasswordResetEmail({
-      to: user.email,
-      username: user.username,
-      displayName: user.profile?.displayName,
-      resetUrl,
-      resetCode: rawCode,
-    }).catch((err) => {
-      console.error(`[AuthService] Background email delivery error for ${user.email}:`, err?.message || err);
-      return { success: false, previewUrl: undefined };
-    });
-
-    let emailResult: any = { success: hasLiveEmail, previewUrl: undefined };
-    try {
-      const fastResult = await Promise.race([
-        emailPromise,
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)),
-      ]);
-      if (fastResult) {
-        emailResult = fastResult;
+    let emailResult: any = { success: false, previewUrl: undefined };
+    if (hasLiveEmail) {
+      try {
+        emailResult = await EmailService.sendPasswordResetEmail({
+          to: user.email,
+          username: user.username,
+          displayName: user.profile?.displayName,
+          resetUrl,
+          resetCode: rawCode,
+        });
+      } catch (err: any) {
+        console.error(`[AuthService] Email delivery error for ${user.email}:`, err?.message || err);
       }
-    } catch {
-      // Background email continues safely
     }
 
     // Mask recipient email (e.g. b***27@gmail.com)
