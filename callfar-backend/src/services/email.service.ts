@@ -26,6 +26,9 @@ export class EmailService {
       if (host.toLowerCase().includes('gmail')) {
         this.transporter = nodemailer.createTransport({
           service: 'gmail',
+          connectionTimeout: 7000,
+          greetingTimeout: 7000,
+          socketTimeout: 8000,
           auth: {
             user,
             pass,
@@ -37,8 +40,9 @@ export class EmailService {
           host,
           port: ENV.SMTP_PORT || 587,
           secure: ENV.SMTP_SECURE || ENV.SMTP_PORT === 465,
-          connectionTimeout: 10000,
-          greetingTimeout: 10000,
+          connectionTimeout: 7000,
+          greetingTimeout: 7000,
+          socketTimeout: 8000,
           auth: {
             user,
             pass,
@@ -274,7 +278,11 @@ Ultra High-Definition Voice, Video & Encrypted Messaging
         },
       };
 
-      const info = await transporter.sendMail(mailOptions);
+      const sendPromise = transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP sendMail exceeded 8000ms limit')), 8000)
+      );
+      const info: any = await Promise.race([sendPromise, timeoutPromise]);
 
       const previewUrl = nodemailer.getTestMessageUrl(info);
       if (previewUrl) {

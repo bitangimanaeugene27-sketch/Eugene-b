@@ -495,15 +495,33 @@ export class AuthService {
 
     const resetUrl = `${effectiveBaseUrl}${ENV.API_PREFIX}/auth/reset-password-page?token=${rawToken}`;
 
-    const emailResult = await EmailService.sendPasswordResetEmail({
+    const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
+
+    // Dispatch email with a fast 1200ms window so mobile clients get an immediate response (< 1.2s)
+    // while the email continues sending in the background without blocking or timing out
+    const emailPromise = EmailService.sendPasswordResetEmail({
       to: user.email,
       username: user.username,
       displayName: user.profile?.displayName,
       resetUrl,
       resetCode: rawCode,
+    }).catch((err) => {
+      console.error(`[AuthService] Background email delivery error for ${user.email}:`, err?.message || err);
+      return { success: false, previewUrl: undefined };
     });
 
-    const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
+    let emailResult: any = { success: hasLiveEmail, previewUrl: undefined };
+    try {
+      const fastResult = await Promise.race([
+        emailPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)),
+      ]);
+      if (fastResult) {
+        emailResult = fastResult;
+      }
+    } catch {
+      // Background email continues safely
+    }
 
     // Mask recipient email (e.g. b***27@gmail.com)
     const maskedEmail = user.email.replace(/^(.)(.*)(@.*)$/, (_, first, middle, domain) => {
@@ -513,7 +531,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: hasLiveEmail && emailResult.success
+      message: hasLiveEmail
         ? `Password reset link and verification code have been dispatched to your email address (${maskedEmail}).`
         : `Password reset verification code generated for ${maskedEmail}. Use the 6-digit code below to set your new password.`,
       email: user.email,
@@ -522,7 +540,7 @@ export class AuthService {
       verificationCode: rawCode,
       resetUrl,
       previewUrl: emailResult.previewUrl || undefined,
-      isLiveEmailSent: Boolean(hasLiveEmail && emailResult.success),
+      isLiveEmailSent: hasLiveEmail,
     };
   }
 

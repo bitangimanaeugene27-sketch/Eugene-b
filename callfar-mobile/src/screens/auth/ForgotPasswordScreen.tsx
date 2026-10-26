@@ -10,6 +10,7 @@ import {
   ScrollView,
   TextInput,
   Clipboard,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { THEME } from '../../styles/theme';
@@ -30,6 +31,8 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSuccessNotice, setResendSuccessNotice] = useState<string | null>(null);
   const [devPreviewCode, setDevPreviewCode] = useState<string | null>(null);
   const [isLiveEmailSent, setIsLiveEmailSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -114,6 +117,48 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendCodeAndLink = async () => {
+    if (resending || resendCooldown > 0) return;
+
+    const target = (trimmedIdentifier || targetAccountEmail || '').trim();
+    if (!target) {
+      Alert.alert(
+        'Identifier Required',
+        'Account email or username is missing. Please tap "Change Email" to enter your email address.'
+      );
+      return;
+    }
+
+    try {
+      setResending(true);
+      setResendSuccessNotice(null);
+      const res = await forgotPassword(target.toLowerCase());
+
+      const code = res?.verificationCode || res?.data?.verificationCode || res?.devCode;
+      if (code) {
+        setDevPreviewCode(code);
+        setVerificationCode(code);
+      }
+      setIsLiveEmailSent(Boolean(res?.isLiveEmailSent));
+      setResendCooldown(45);
+      setResendSuccessNotice('Fresh 6-digit code & link dispatched!');
+      setTimeout(() => setResendSuccessNotice(null), 5000);
+
+      Alert.alert(
+        'Code & Link Dispatched! ✉️',
+        `A fresh 6-digit verification code and reset link have been dispatched to ${res?.maskedEmail || targetAccountEmail || target}.\n\nCheck your email or use the new 6-digit code pre-filled below to reset immediately.`
+      );
+    } catch (err: any) {
+      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
+      const msg = isTimeout
+        ? 'Connection timed out, but your current 6-digit code may still be valid. You can reset below or tap resend again.'
+        : (err.response?.data?.message || err.message || 'Failed to resend code and link. Please check your network connection.');
+      Alert.alert('Resend Notice', msg);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -420,14 +465,32 @@ export const ForgotPasswordScreen = ({ navigation, route }: any) => {
               style={styles.submitBtn}
             />
 
+            {/* Resend Success Toast / Notice */}
+            {resendSuccessNotice && (
+              <View style={styles.resendSuccessBadge}>
+                <Text style={styles.resendSuccessText}>✓ {resendSuccessNotice}</Text>
+              </View>
+            )}
+
             {/* Resend & Actions Row */}
             <View style={styles.resendRow}>
-              {resendCooldown > 0 ? (
-                <Text style={styles.cooldownText}>
-                  Resend available in {resendCooldown}s
-                </Text>
+              {resending ? (
+                <View style={styles.resendingContainer}>
+                  <ActivityIndicator size="small" color="#38BDF8" />
+                  <Text style={styles.resendingText}>Sending fresh code & email link...</Text>
+                </View>
+              ) : resendCooldown > 0 ? (
+                <View style={styles.cooldownBadge}>
+                  <Text style={styles.cooldownText}>
+                    ⏳ Resend available in {resendCooldown}s
+                  </Text>
+                </View>
               ) : (
-                <TouchableOpacity onPress={handleRequestReset} disabled={loading}>
+                <TouchableOpacity
+                  style={styles.resendBtn}
+                  onPress={handleResendCodeAndLink}
+                  activeOpacity={0.7}
+                >
                   <Text style={styles.resendLinkText}>🔄 Resend Code & Email Link</Text>
                 </TouchableOpacity>
               )}
@@ -848,14 +911,59 @@ const styles = StyleSheet.create({
     color: '#34D399',
     fontWeight: '600',
   },
+  resendSuccessBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  resendSuccessText: {
+    color: '#34D399',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   resendRow: {
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 6,
     marginBottom: 8,
+    minHeight: 36,
+  },
+  resendingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  resendingText: {
+    color: '#38BDF8',
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  cooldownBadge: {
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   cooldownText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
+    fontWeight: '600',
+  },
+  resendBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
   resendLinkText: {
     color: '#38BDF8',
