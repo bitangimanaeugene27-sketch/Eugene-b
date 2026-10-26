@@ -120,12 +120,34 @@ export const ChatScreen = ({ route, navigation }: any) => {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
       }
     };
+    const onMsgSent = (data: { conversationId: string; message: Message }) => {
+      if (data.conversationId === conversationId) {
+        setMessages(prev => {
+          const exists = prev.some(m => m.id === data.message.id);
+          if (exists) return prev;
+          const tempIdx = prev.findIndex(
+            m => m.id.startsWith('temp-') && m.content === data.message.content
+          );
+          if (tempIdx !== -1) {
+            const next = [...prev];
+            next[tempIdx] = data.message;
+            return next;
+          }
+          return [...prev, data.message];
+        });
+      }
+    };
     const onTyping = (data: { userId: string; isTyping: boolean }) => {
       if (data.userId === peerId) setIsPeerTyping(data.isTyping);
     };
     socket.on('chat:new_message', onNewMsg);
+    socket.on('chat:message_sent', onMsgSent);
     socket.on('chat:user_typing', onTyping);
-    return () => { socket.off('chat:new_message', onNewMsg); socket.off('chat:user_typing', onTyping); };
+    return () => {
+      socket.off('chat:new_message', onNewMsg);
+      socket.off('chat:message_sent', onMsgSent);
+      socket.off('chat:user_typing', onTyping);
+    };
   }, [socket, conversationId, peerId]);
 
   // ── Typing indicator emit ──

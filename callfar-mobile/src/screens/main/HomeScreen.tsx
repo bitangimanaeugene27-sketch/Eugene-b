@@ -220,7 +220,9 @@ export const HomeScreen = ({ navigation }: any) => {
           </Text>
           <Text style={s.userHandle}>@{u.username}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            {u.profile?.isOnline ? (
+            {u.role === 'ADMIN' || u.username === 'alice' ? (
+              <Text style={s.attendantText}>⚡ 24/7 AI Attendant</Text>
+            ) : u.profile?.isOnline ? (
               <Text style={s.onlineText}>🟢 Online now</Text>
             ) : (
               <Text style={s.offlineText}>Active on CallFar</Text>
@@ -679,6 +681,12 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: THEME.colors.success,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  attendantText: {
+    fontSize: 11,
+    color: THEME.colors.accent,
+    fontWeight: '700',
     marginTop: 2,
   },
   offlineText: {

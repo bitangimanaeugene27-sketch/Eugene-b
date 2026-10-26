@@ -78,7 +78,9 @@ const SearchCard = ({
         </Text>
         <Text style={styles.cardUsername}>@{item.username}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          {item.profile?.isOnline ? (
+          {item.role === 'ADMIN' || item.username === 'alice' ? (
+            <Text style={styles.attendantBadgeText}>⚡ 24/7 AI Attendant</Text>
+          ) : item.profile?.isOnline ? (
             <Text style={styles.onlineBadgeText}>🟢 Online</Text>
           ) : (
             <Text style={styles.offlineBadgeText}>CallFar User</Text>
@@ -811,6 +813,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: THEME.colors.success,
     fontWeight: '600',
+    marginTop: 2,
+  },
+  attendantBadgeText: {
+    fontSize: 11,
+    color: THEME.colors.accent,
+    fontWeight: '700',
     marginTop: 2,
   },
   offlineBadgeText: {

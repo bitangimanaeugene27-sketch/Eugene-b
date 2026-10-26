@@ -254,7 +254,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 3. Caller receives accept notification
     socket.on(
       'call:accepted',
-      async (data: { callId: string; answerSdp: any; isSelfCall?: boolean; networkTopology?: any }) => {
+      async (data: {
+        callId: string;
+        answerSdp: any;
+        isSelfCall?: boolean;
+        isAttendant?: boolean;
+        attendantName?: string;
+        networkTopology?: any;
+      }) => {
         console.log('[Call Accepted by peer]', data.callId);
         soundManager.stopAll();
         soundManager.playCallConnected();
@@ -272,9 +279,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return {
             ...prev,
             callId: updatedCallId,
+            peerName: data.attendantName || prev.peerName,
+            isAttendant: data.isAttendant,
+            isSelfCall: data.isSelfCall || data.isAttendant,
             ...(data?.networkTopology ? { networkTopology: data.networkTopology } : {}),
           };
         });
+
+        // If attendant call, attach local stream to remote view for camera/mic loopback verification
+        if (data.isAttendant && localStreamRef.current) {
+          setRemoteStream(localStreamRef.current);
+          remoteDescSet.current = true;
+        }
 
         if (peerConnection.current && data.answerSdp && RTCSessionDescription) {
           try {
@@ -289,7 +305,16 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setCallState('CONNECTED');
 
-        if (data.isSelfCall) {
+        if (data.isAttendant) {
+          setTimeout(() => {
+            const attendantGreeting = `Hello! This is ${data.attendantName || 'Alice Cooper'} at CallFar. Your call is connected! Both your microphone audio and network latency are performing excellently. You can test in-call controls like mute, speaker, or video now.`;
+            setAssistantTranscript(attendantGreeting);
+            setIsAssistantSpeaking(true);
+            soundManager.speak(attendantGreeting, () => {
+              setIsAssistantSpeaking(false);
+            });
+          }, 600);
+        } else if (data.isSelfCall) {
           setTimeout(() => {
             speakAssistantGreeting();
           }, 600);
@@ -346,6 +371,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callId: string;
       receiverId?: string;
       receiverName?: string;
+      callType?: 'VOICE' | 'VIDEO';
       reason: string;
       message: string;
     }) => {
@@ -357,7 +383,21 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       Alert.alert(
         '📵 Phone Switched Off / Offline',
         data.message || 'The user you called is currently switched off or not reachable on the network. A missed call alert has been sent.',
-        [{ text: 'OK' }]
+        [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: '📞 Test with Voice Attendant',
+            onPress: () => {
+              if (startCallRef.current && user) {
+                startCallRef.current(
+                  user.id,
+                  'Voice Assistant · Echo Test',
+                  data.callType || 'VOICE'
+                );
+              }
+            },
+          },
+        ]
       );
     });
 

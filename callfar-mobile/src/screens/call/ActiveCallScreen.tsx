@@ -155,6 +155,7 @@ export const ActiveCallScreen: React.FC = () => {
 
   const isVideo = activeCall.callType === 'VIDEO';
   const isSelfCall = activeCall.isSelfCall;
+  const isAttendant = (activeCall as any)?.isAttendant;
 
   return (
     <Modal visible={true} animationType="fade" statusBarTranslucent>
@@ -171,7 +172,9 @@ export const ActiveCallScreen: React.FC = () => {
             {/* Top header badge */}
             <View style={styles.topBadge}>
               <Text style={styles.topBadgeText}>
-                {isSelfCall
+                {isAttendant
+                  ? '⚡ CallFar Attendant · HD Session'
+                  : isSelfCall
                   ? '🤖 AI Voice Assistant · Echo Test'
                   : '🔒 End-to-End Encrypted Session'}
               </Text>
@@ -187,14 +190,14 @@ export const ActiveCallScreen: React.FC = () => {
               ]}
             >
               <Avatar
-                name={isSelfCall ? 'Voice Bot' : activeCall.peerName}
-                url={isSelfCall ? null : activeCall.peerAvatar}
+                name={isSelfCall && !isAttendant ? 'Voice Bot' : activeCall.peerName}
+                url={isSelfCall && !isAttendant ? null : activeCall.peerAvatar}
                 size={120}
               />
             </Animated.View>
 
             <Text style={styles.peerName}>
-              {isSelfCall ? 'CallFar Voice Assistant' : activeCall.peerName}
+              {isSelfCall && !isAttendant ? 'CallFar Voice Assistant' : activeCall.peerName}
             </Text>
 
             <Text style={styles.callStateText}>
@@ -210,12 +213,16 @@ export const ActiveCallScreen: React.FC = () => {
               <AudioWaveBars active={isAssistantSpeaking || !isMuted} />
             )}
 
-            {/* Self-Call AI Assistant Card */}
-            {isSelfCall && callState === 'CONNECTED' && (
+            {/* AI Assistant / Attendant In-Call Card */}
+            {(isSelfCall || isAttendant) && callState === 'CONNECTED' && (
               <View style={styles.assistantCard}>
                 <View style={styles.assistantCardHeader}>
                   <Text style={styles.assistantCardTitle}>
-                    {isAssistantSpeaking ? '🔊 Assistant Speaking...' : '🎤 Echo Mode Active'}
+                    {isAssistantSpeaking
+                      ? '🔊 Attendant Speaking...'
+                      : isAttendant
+                      ? '⚡ Attendant Connected'
+                      : '🎤 Echo Mode Active'}
                   </Text>
                   <TouchableOpacity
                     style={styles.replayBtn}
@@ -231,13 +238,14 @@ export const ActiveCallScreen: React.FC = () => {
                 </Text>
 
                 <Text style={styles.assistantSubText}>
-                  💡 Tip: Speak normally. You will hear your voice in real time to verify your audio
-                  latency and microphone quality.
+                  {isAttendant
+                    ? '💡 Tip: CallFar WebRTC session is active. Test microphone audio, speakerphone, camera, and in-call controls below.'
+                    : '💡 Tip: Speak normally. You will hear your voice in real time to verify your audio latency and microphone quality.'}
                 </Text>
               </View>
             )}
 
-            {!isSelfCall && (
+            {!isSelfCall && !isAttendant && (
               <Text style={styles.encryptionBadge}>
                 SRTP DTLS-256 · WebRTC Peer-to-Peer
               </Text>

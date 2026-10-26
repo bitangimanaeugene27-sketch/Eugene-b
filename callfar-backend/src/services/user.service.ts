@@ -168,6 +168,7 @@ export class UserService {
           id: true,
           username: true,
           phoneNumber: true,
+          role: true,
           profile: {
             select: {
               displayName: true,
@@ -225,6 +226,7 @@ export class UserService {
         id: true,
         username: true,
         phoneNumber: true,
+        role: true,
         profile: {
           select: {
             displayName: true,

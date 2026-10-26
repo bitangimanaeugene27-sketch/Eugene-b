@@ -9,6 +9,11 @@ async function bootstrap() {
   const app = createApp();
   const server = http.createServer(app);
 
+  // Reset stale online status from previous server sessions
+  await prisma.userProfile.updateMany({
+    data: { isOnline: false },
+  }).catch((err) => console.warn('[Startup] Could not reset presence:', err));
+
   // Initialize Socket.IO Signaling Server
   const io = setupSocketServer(server, ENV.CORS_ORIGIN);
 
