@@ -22,9 +22,14 @@ export class EmailService {
       if (host.toLowerCase().includes('gmail')) {
         return nodemailer.createTransport({
           service: 'gmail',
-          connectionTimeout: 20000,
-          greetingTimeout: 20000,
-          socketTimeout: 25000,
+          pool: true,
+          maxConnections: 3,
+          maxMessages: 100,
+          rateDelta: 1000,
+          rateLimit: 5,
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
           auth: {
             user,
             pass,
@@ -35,9 +40,12 @@ export class EmailService {
           host,
           port: ENV.SMTP_PORT || 587,
           secure: ENV.SMTP_SECURE || ENV.SMTP_PORT === 465,
-          connectionTimeout: 20000,
-          greetingTimeout: 20000,
-          socketTimeout: 25000,
+          pool: true,
+          maxConnections: 3,
+          maxMessages: 100,
+          connectionTimeout: 10000,
+          greetingTimeout: 10000,
+          socketTimeout: 15000,
           auth: {
             user,
             pass,
@@ -49,6 +57,21 @@ export class EmailService {
     return nodemailer.createTransport({
       jsonTransport: true,
     });
+  }
+
+  /**
+   * Pre-warm SMTP connection pool for sub-second email dispatch
+   */
+  public static async warmup(): Promise<void> {
+    try {
+      const transporter = await this.getTransporter();
+      if (transporter && typeof transporter.verify === 'function') {
+        await transporter.verify();
+        console.log('[EmailService] ⚡ SMTP connection pool verified & warmed up ready for instant delivery.');
+      }
+    } catch (err: any) {
+      console.warn('[EmailService] ⚠️ SMTP warmup notice:', err?.message || err);
+    }
   }
 
   private static async getTransporter(): Promise<Transporter> {
@@ -177,7 +200,7 @@ export class EmailService {
                       </div>
                       <div style="margin-top: 10px;">
                         <span style="display: inline-block; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); color: #FBBF24; font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 6px;">
-                          Code &amp; link expire in 15 minutes
+                          Code &amp; link expire in 2 hours
                         </span>
                       </div>
                     </div>
@@ -249,7 +272,7 @@ If you are resetting directly in the CallFar mobile app, enter this 6-digit code
 ${resetCode}
 
 SECURITY NOTICE:
-* This link and code expire in 15 minutes.
+* This link and code expire in 2 hours.
 * If you did not make this request, you can safely ignore this email.
 * Your account remains secure and no changes have been made.
 

@@ -3,6 +3,7 @@ import { createApp } from './app.js';
 import { ENV } from './config/env.js';
 import { setupSocketServer } from './signaling/socket.server.js';
 import { prisma } from './config/prisma.js';
+import { EmailService } from './services/email.service.js';
 
 async function bootstrap() {
   const app = createApp();
@@ -26,6 +27,9 @@ async function bootstrap() {
     console.log(`🗄️  Database:        ${dbTarget}`);
     console.log(`🌐 Environment:     ${ENV.NODE_ENV}`);
     console.log(`===============================================`);
+
+    // Warm up SMTP connection pool in background for instant sub-second email delivery
+    EmailService.warmup().catch(() => {});
   });
 
   // Graceful Shutdown

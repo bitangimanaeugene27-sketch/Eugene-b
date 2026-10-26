@@ -457,13 +457,14 @@ export class AuthService {
     }
 
     // Clean up only expired tokens for this user so unexpired tokens remain valid
-    await prisma.passwordResetToken.updateMany({
+    // Clean up expired tokens asynchronously in background (non-blocking)
+    prisma.passwordResetToken.updateMany({
       where: {
         userId: user.id,
         expiresAt: { lt: new Date() },
       },
       data: { isUsed: true },
-    });
+    }).catch((err) => console.warn('[AuthService] Expired token cleanup notice:', err?.message || err));
 
     // Generate secure random link token and 6-digit numeric verification code
     const rawToken = generateRandomToken(32);
@@ -474,7 +475,8 @@ export class AuthService {
     // Valid for 2 hours (120 minutes) so users have reliable, persistent access
     const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
 
-    await prisma.passwordResetToken.create({
+    // Prepare database creation promise
+    const tokenCreationPromise = prisma.passwordResetToken.create({
       data: {
         userId: user.id,
         tokenHash,
@@ -498,20 +500,22 @@ export class AuthService {
 
     const hasLiveEmail = Boolean(ENV.SMTP_HOST && ENV.SMTP_USER);
 
-    let emailResult: any = { success: false, previewUrl: undefined };
-    if (hasLiveEmail) {
-      try {
-        emailResult = await EmailService.sendPasswordResetEmail({
+    // Prepare email dispatch promise
+    const emailDispatchPromise = hasLiveEmail
+      ? EmailService.sendPasswordResetEmail({
           to: user.email,
           username: user.username,
           displayName: user.profile?.displayName,
           resetUrl,
           resetCode: rawCode,
-        });
-      } catch (err: any) {
-        console.error(`[AuthService] Email delivery error for ${user.email}:`, err?.message || err);
-      }
-    }
+        }).catch((err: any) => {
+          console.error(`[AuthService] Email delivery error for ${user.email}:`, err?.message || err);
+          return { success: false, previewUrl: undefined };
+        })
+      : Promise.resolve({ success: false, previewUrl: undefined });
+
+    // Execute database token creation and email delivery simultaneously in parallel
+    const [, emailResult] = await Promise.all([tokenCreationPromise, emailDispatchPromise]);
 
     // Mask recipient email (e.g. b***27@gmail.com)
     const maskedEmail = user.email.replace(/^(.)(.*)(@.*)$/, (_, first, middle, domain) => {

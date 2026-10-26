@@ -46,12 +46,15 @@ export const elevateAdminSchema = z.object({
   adminPasscode: z.string().min(1, 'Admin security passcode is required'),
 });
 
-export const forgotPasswordSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, 'Please enter your email, username, or phone number'),
-});
+export const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().min(1).optional(),
+    identifier: z.string().trim().min(1).optional(),
+  })
+  .refine((data) => Boolean(data.email || data.identifier), {
+    message: 'Please enter your registered email address, username, or phone number',
+    path: ['email'],
+  });
 
 export const resetPasswordSchema = z
   .object({
